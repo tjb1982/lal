@@ -3,6 +3,10 @@ lal
 
 Web framework in C
 
+```bash
+$ make
+$ make install
+```
 
 
 ```C
