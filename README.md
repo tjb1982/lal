@@ -68,6 +68,5 @@ main(int argc, char **argv)
 ```
 
 ```bash
-my_app [hostname] [port] [daemonize]
 $ my_app localhost 9000 true
 ```
