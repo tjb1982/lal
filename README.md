@@ -11,9 +11,10 @@ $ make install
 
 ```C
 #include <lal/route.h>
+#include <lal/request.h>
+#include <lal/response.h>
 #include <lal/network.h>
 ...
-#define CRLF "\r\n"
 
 int
 say_something(struct lal_request *request, int sock)
