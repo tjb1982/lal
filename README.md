@@ -20,7 +20,7 @@ say_something(struct lal_request *request, int sock)
 {
 
     char *msg[21];
-    snscanf(request->path, "/hello/%20[^/]", msg);
+    sscanf(request->path, "/hello/%20[^/]", msg);
 
     struct lal_response *resp = lal_create_response("200 OK");
 
