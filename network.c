@@ -35,6 +35,7 @@ lal_bind_and_listen_or_die (int sock, struct addrinfo *host)
     }
 
     status = listen(sock, 200);
+
     if (status < 0) {
         syslog(LOG_ERR, "Error listening to socket: %s", strerror(errno));
         exit(1);
@@ -66,7 +67,11 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port)
 }
 
 void
-lal_serve_forever(const char *host, const char *port, int daemonize)
+lal_serve_forever(void *(*socket_handler)(void *arg),
+                  const char *host,
+                  const char *port,
+                  int daemonize,
+                  int threaded)
 {
     int pid, listening_socket, request_socket, hitcount = 0;
 
@@ -97,26 +102,34 @@ lal_serve_forever(const char *host, const char *port, int daemonize)
             (struct sockaddr *) &request_addrinfo,
             &request_addrinfo_socklen
         );
-
-        pid = fork();
-        if (pid < 0) {
-            syslog(LOG_ERR, "fork failed: %s", strerror(errno));
-            exit(1);
+        if (threaded) {
+            // TODO: implement multithreading
+            /*pthread_t thread;
+            pthread_create(&thread, 0, socket_handler, &request_socket);
+            pthread_join(thread, NULL);
+            (void) close(request_socket);*/
+            syslog(LOG_ERR, "%s", "multithreading not supported yet");
         }
+        else {
 
-        if (pid == 0) {
-            /* child process */
-            (void) close(listening_socket);
-            lal_route_request (request_socket, hitcount);
-            lal_destroy_routes();
-            (void) close(request_socket);
-            exit(1);
+            pid = fork();
+
+            if (pid < 0) {
+                syslog(LOG_ERR, "fork failed: %s", strerror(errno));
+                exit(1);
+            }
+
+            if (pid == 0) {
+                /* child process */
+                (void) close(listening_socket);
+                (void) socket_handler (&request_socket);
+                (void) close(request_socket);
+                exit(1);
+            }
+            else
+                /* parent process */
+                (void) close(request_socket);
+
         }
-        else
-            /* parent process */
-            (void) close(request_socket);
-
     }
-
-    lal_destroy_routes();
 }

@@ -3,6 +3,7 @@
 #include <netdb.h>
 #include <signal.h>
 #include <syslog.h>
+#include <pthread.h>
 #include "route.h"
 
 int
@@ -15,4 +16,8 @@ struct addrinfo *
 lal_get_host_addrinfo_or_die (const char *hostname, const char *port);
 
 void
-lal_serve_forever(const char *host, const char *port, int daemonize);
+lal_serve_forever(void *(*socket_handler)(void *arg),
+                  const char *host,
+                  const char *port,
+                  int daemonize,
+                  int threaded);
