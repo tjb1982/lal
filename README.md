@@ -11,16 +11,17 @@ $ make install
 
 ```C
 #include <lal/route.h>
+#include <lal/request.h>
+#include <lal/response.h>
 #include <lal/network.h>
 ...
-#define CRLF "\r\n"
 
 int
 say_something(struct lal_request *request, int sock)
 {
 
     char *msg[21];
-    snscanf(request->path, "/hello/%20[^/]", msg);
+    sscanf(request->path, "/hello/%20[^/]", msg);
 
     struct lal_response *resp = lal_create_response("200 OK");
 
@@ -59,7 +60,7 @@ main(int argc, char **argv)
             : strcmp(argv[4], "true") ? 0
             : 1
         )
-    );															    );
+    );
     lal_destroy_routes();
 
     return 0;
@@ -67,6 +68,5 @@ main(int argc, char **argv)
 ```
 
 ```bash
-my_app [hostname] [port] [daemonize]
 $ my_app localhost 9000 true
 ```
