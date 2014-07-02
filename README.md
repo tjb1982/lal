@@ -59,7 +59,7 @@ main(int argc, char **argv)
             : strcmp(argv[4], "true") ? 0
             : 1
         )
-    );															    );
+    );
     lal_destroy_routes();
 
     return 0;
