@@ -16,40 +16,51 @@ $ make install
 #define CRLF "\r\n"
 
 int
-authenticated(struct lal_request *request, int sock)
+say_something(struct lal_request *request, int sock)
 {
-    char *response;
-    char *token = lal_get_header_val(request, "Authorization");
-    
-    if (validate_token(token))
-        response = "HTTP/1.1 200 OK" CRLF CRLF;
-    else
-        response = "HTTP/1.1 403 Forbidden" CRLF CRLF;
-    
-    send(sock, response, (strlen(response) + 1), 0);
-    
+
+    char *msg[21];
+    snscanf(request->path, "/hello/%20[^/]", msg);
+
+    struct lal_response *resp = lal_create_response("200 OK");
+
+    char content_length[3];
+    sprintf(content_length, "%i", strlen(msg));
+
+    lal_append_to_entries(resp->entries, "Content-Length", content_length);
+    lal_append_to_entries(resp->entries, "Content-Type", "text/plain; charset=utf-8");
+    lal_append_to_body(resp->body, msg);
+
+    char *response = lal_serialize_response(resp);
+    send(sock, response, strlen(response), 0);
+
+    free(response);
+    lal_destroy_response(resp);
+
     return 0;
 }
 
 int
 main(int argc, char **argv)
 {
-    db_setup();
-
-    lal_register_route(GET, "/authenticated", authenticated);
-    lal_register_route(GET, "/token", get_token);
-    lal_register_route(PUT, "/user", create_user);
-    lal_register_route(DELETE, "/user", delete_user);
+    lal_register_route(GET, "/hello/:message", say_something);
 
     lal_serve_forever(
-        argc > 1 ? argv[1] : "localhost",
+        lal_route_request,
+        argc > 1 ? argv[1] : "127.0.0.1",
         argc > 2 ? argv[2] : "8080",
-        (
+        ( /// daemonize?
             argc < 4 ? 0
             : strcmp(argv[3], "true") ? 0
             : 1
+        ),
+        ( /// multithread?
+            argc < 5 ? 0
+            : strcmp(argv[4], "true") ? 0
+            : 1
         )
-    );
+    );															    );
+    lal_destroy_routes();
 
     return 0;
 }
