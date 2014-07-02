@@ -57,7 +57,6 @@ lal_register_route (enum lal_http_method method, char *path,
 
     syslog(LOG_INFO, "route created: %s, %i, %p\n",
            route->path, route->method, (void *)route->handler);
-
 }
 
 struct lal_route *

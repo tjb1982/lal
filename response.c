@@ -22,6 +22,12 @@ lal_serialize_response(struct lal_response *resp)
     lal_append_to_body(header, resp->status);
     lal_append_to_body(header, "\r\n");
 
+    char *body_str = lal_join_body(resp->body, NULL);
+    char content_length[100];
+    sprintf(content_length, "%li", strlen(body_str));
+
+    lal_append_to_entries(resp->entries, "Content-Length", content_length);
+
     struct lal_entry *entry = resp->entries;
     while (entry) {
         lal_append_to_body(header, entry->key);
@@ -35,7 +41,6 @@ lal_serialize_response(struct lal_response *resp)
 
     char *header_str = lal_join_body(header, NULL);
     lal_destroy_body(header);
-    char *body_str = lal_join_body(resp->body, NULL);
 
     r = malloc((strlen(header_str) + strlen(body_str) + 1) * sizeof(char));
     strcpy(r, header_str);
