@@ -25,7 +25,7 @@ say_something(struct lal_request *request, int sock)
 
     struct lal_response *resp = lal_create_response("200 OK");
 
-    lal_append_to_entries(resp->entries, "Content-Type", "text/plain; charset=utf-8");
+    lal_append_to_entries(resp->headers, "Content-Type", "text/plain; charset=utf-8");
     lal_append_to_body(resp->body, msg);
 
     char *response = lal_serialize_response(resp);
