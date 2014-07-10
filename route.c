@@ -5,29 +5,33 @@ static struct lal_route *routes;
 void *
 lal_route_request (void *arg)
 {
+    struct handler_args *args = arg;
     char *header;
-    int sock = *((int *)arg);
     struct lal_request *request;
     struct lal_route *route;
 
-    header = lal_read_header(sock);
+    header = lal_read_header(args->socket);
     request = lal_create_request(header);
 
-    if (!~request->method)
+    if (!~request->method) {
         syslog(LOG_ERR, "route_request failed: method %s not implemented\n",
                strtok(header, " "));
+    }
 
     free(header);
 
     route = lal_get_route(request);
 
     if (route)
-        (void) route->handler(request, sock);
+        (void) route->handler(request, args->socket);
     else
         syslog(LOG_ERR, "lal_route_request failed: route not found");
 
     lal_destroy_request(request);
-    lal_destroy_routes();
+    close(args->socket);
+
+    args->ready = 1;
+    pthread_exit(NULL);
     return NULL;
 }
 
@@ -48,8 +52,12 @@ lal_register_route (enum lal_http_method method, char *path,
         route = route->next;
     }
 
-    route->path = malloc((strlen(path) + 1) * sizeof(char));
-    strcpy(route->path, path);
+    if (path) {
+        route->path = malloc((strlen(path) + 1) * sizeof(char));
+        strcpy(route->path, path);
+    }
+    else
+        route->path = NULL;
 
     route->method = method;
     route->handler = handler;
@@ -66,13 +74,17 @@ lal_get_route (struct lal_request *request)
     char *route_pos, *request_pos;
 
     while (route) {
+        if (!route->path)
+            return route;
         route_pos = route->path;
         request_pos = request->path;
 compare:
         while (*route_pos == *request_pos) {
             if (*request_pos == '\0') {
-                if (route->method == request->method)
+                if (route->method == request->method ||
+                    route->method == ANY) {
                     return route;
+                }
                 else
                     break;
             }
@@ -82,8 +94,10 @@ compare:
             }
         }
 
-        if (*request_pos == '?')
+        if (*request_pos == '?' &&
+            route->method == request->method) {
             return route;
+        }
 
         if (*route_pos == ':') {
             int contains_param = 0;

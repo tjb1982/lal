@@ -34,7 +34,7 @@ lal_bind_and_listen_or_die (int sock, struct addrinfo *host)
         exit(1);
     }
 
-    status = listen(sock, 200);
+    status = listen(sock, BOCKLOG);
 
     if (status < 0) {
         syslog(LOG_ERR, "Error listening to socket: %s", strerror(errno));
@@ -73,7 +73,7 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
                   int daemonize,
                   int threaded)
 {
-    int pid, listening_socket, request_socket, hitcount = 0;
+    int /*pid, */listening_socket, request_socket, hitcount = 0;
 
     struct addrinfo request_addrinfo,
                     *host_addrinfo = lal_get_host_addrinfo_or_die(
@@ -95,6 +95,11 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
     (void) signal(SIGHUP, SIG_IGN); /* ignore terminal hangups */
     (void) setpgid(0,0); /* break away from process group */
 
+    struct handler_args *args = calloc(
+        THREADNUM,
+        sizeof(struct handler_args)
+    );
+
     while (++hitcount) {
 
         request_socket = accept(
@@ -102,15 +107,41 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
             (struct sockaddr *) &request_addrinfo,
             &request_addrinfo_socklen
         );
-        if (threaded) {
-            // TODO: implement multithreading
-            /*pthread_t thread;
-            pthread_create(&thread, 0, socket_handler, &request_socket);
-            pthread_join(thread, NULL);
-            (void) close(request_socket);*/
-            syslog(LOG_ERR, "%s", "multithreading not supported yet");
+
+        int id = 0;
+
+        while (args[id].thread && !args[id].ready) {
+            time_t now; time(&now);
+            if (now - args[id].created > THREAD_TIMEOUT) {
+                pthread_cancel(args[id].thread);
+                break;
+            }
+            id = ++id == THREADNUM ? id - THREADNUM : id;
         }
-        else {
+
+        if (args[id].thread) {
+            int perr = pthread_join(args[id].thread, NULL);
+            if (perr) {
+                syslog(LOG_ERR, "pthread_join: %s", strerror(perr));
+                pthread_cancel(args[id].thread);
+            }
+        }
+
+        args[id].socket = request_socket;
+        args[id].hitcount = hitcount;
+        args[id].ready = 0;
+        args[id].thread = 0;
+        time(&args[id].created);
+
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr, 32768);
+        pthread_attr_destroy(&attr);
+
+        pthread_create(&args[id].thread, 0, socket_handler, &args[id]);
+
+        printf("thread created %i\n", id);
+        /*else {
 
             pid = fork();
 
@@ -120,16 +151,17 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
             }
 
             if (pid == 0) {
-                /* child process */
+                // child process
                 (void) close(listening_socket);
                 (void) socket_handler (&request_socket);
                 (void) close(request_socket);
                 exit(1);
             }
             else
-                /* parent process */
+                // parent process
                 (void) close(request_socket);
 
-        }
+        }*/
+
     }
 }

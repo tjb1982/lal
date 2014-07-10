@@ -6,10 +6,20 @@
 #include <syslog.h>
 #include <errno.h>
 #include <execinfo.h>
+#include <pthread.h>
+#include <signal.h>
 #include "request.h"
 
 #ifndef ROUTE_H_
 #define ROUTE_H_
+struct handler_args {
+    pthread_t thread;
+    int socket;
+    size_t hitcount;
+    int ready;
+    time_t created;
+};
+
 struct lal_route {
     char *path;
     enum lal_http_method method;

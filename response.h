@@ -4,7 +4,7 @@
 
 struct lal_response {
     char *status;
-    struct lal_entry *entries;
+    struct lal_entry *headers;
     struct lal_body_part *body;
 };
 

@@ -14,7 +14,7 @@
 #ifndef REQUEST_H_
 #define REQUEST_H_
 enum lal_http_method {
-    GET, POST, PUT, DELETE, HEAD, OPTIONS
+    GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, ANY
 };
 
 struct lal_request {

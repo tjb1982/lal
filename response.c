@@ -6,7 +6,7 @@ lal_create_response(const char *status)
     struct lal_response *resp = malloc(sizeof(struct lal_response));
     resp->status = malloc(sizeof(char) * (strlen(status) + 1));
     strcpy(resp->status, (status ? status : "200 OK"));
-    resp->entries = lal_create_entry();
+    resp->headers = lal_create_entry();
     resp->body = lal_create_body_part();
 
     return resp;
@@ -26,9 +26,9 @@ lal_serialize_response(struct lal_response *resp)
     char content_length[100];
     sprintf(content_length, "%li", strlen(body_str));
 
-    lal_append_to_entries(resp->entries, "Content-Length", content_length);
+    lal_append_to_entries(resp->headers, "Content-Length", content_length);
 
-    struct lal_entry *entry = resp->entries;
+    struct lal_entry *entry = resp->headers;
     while (entry) {
         lal_append_to_body(header, entry->key);
         lal_append_to_body(header, ": ");
@@ -55,7 +55,7 @@ lal_serialize_response(struct lal_response *resp)
 void
 lal_destroy_response(struct lal_response *resp)
 {
-    struct lal_entry *prev, *entry = resp->entries;
+    struct lal_entry *prev, *entry = resp->headers;
 
     while (entry) {
         free(entry->val);

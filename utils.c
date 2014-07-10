@@ -208,5 +208,4 @@ lal_destroy_body(struct lal_body_part *body)
         free(prev);
         i++;
     }
-    syslog(LOG_INFO, "%i body parts destroyed\n", i);
 }
