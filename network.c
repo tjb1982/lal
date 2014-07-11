@@ -119,13 +119,13 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
             id = ++id == THREADNUM ? id - THREADNUM : id;
         }
 
-        if (args[id].thread) {
+        /*if (args[id].thread) {
             int perr = pthread_join(args[id].thread, NULL);
             if (perr) {
                 syslog(LOG_ERR, "pthread_join: %s", strerror(perr));
                 pthread_cancel(args[id].thread);
             }
-        }
+        }*/
 
         args[id].socket = request_socket;
         args[id].hitcount = hitcount;
@@ -136,9 +136,11 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
         pthread_attr_t attr;
         pthread_attr_init(&attr);
         pthread_attr_setstacksize(&attr, 32768);
-        pthread_attr_destroy(&attr);
+//        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-        pthread_create(&args[id].thread, 0, socket_handler, &args[id]);
+        pthread_create(&args[id].thread, &attr, socket_handler, &args[id]);
+
+        pthread_attr_destroy(&attr);
 
         printf("thread created %i\n", id);
         /*else {
