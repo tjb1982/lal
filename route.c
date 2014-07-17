@@ -1,6 +1,6 @@
 #include "route.h"
 
-static struct lal_route *routes;
+struct lal_route *routes = NULL;
 
 void *
 lal_route_request (void *arg)
@@ -31,7 +31,7 @@ lal_route_request (void *arg)
     close(args->socket);
 
     args->ready = 1;
-    pthread_exit(NULL);
+    //pthread_exit(NULL); implied by returning NULL below
     return NULL;
 }
 
@@ -41,9 +41,9 @@ lal_register_route (enum lal_http_method method, char *path,
 {
     struct lal_route *route;
 
-    if (routes == NULL)
+    if (routes == NULL) {
         routes = route = malloc(sizeof(struct lal_route));
-    else {
+    } else {
         route = routes;
         while (route->next)
             route = route->next;

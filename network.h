@@ -6,9 +6,9 @@
 #include <pthread.h>
 #include "route.h"
 
-#define BOCKLOG 1000
-#define THREADNUM 10
-#define THREAD_TIMEOUT 5
+#define BOCKLOG 200
+#define THREADNUM 40
+#define THREAD_TIMEOUT 10
 
 int
 lal_get_socket_or_die (struct addrinfo *host);

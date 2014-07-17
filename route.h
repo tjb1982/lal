@@ -12,6 +12,8 @@
 
 #ifndef ROUTE_H_
 #define ROUTE_H_
+extern struct lal_route *routes;
+
 struct handler_args {
     pthread_t thread;
     int socket;

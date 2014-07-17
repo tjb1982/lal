@@ -43,12 +43,13 @@ lal_set_entries (struct lal_request *request, char *src)
 {
     struct lal_entry *entry;
     char *ptr, *line;
+    char **save_ptr = &src;
     int nentries = 0;
 
     entry = malloc(sizeof(struct lal_entry));
     request->entries = entry;
 
-    line = strtok(src, "\r\n");
+    line = strtok_r(src, "\r\n", save_ptr);
     for (;;) {
         if (strstr(line, ":")) {
             nentries++;
@@ -69,7 +70,7 @@ lal_set_entries (struct lal_request *request, char *src)
             entry->val = malloc((entry->vallen + 1) * sizeof(char));
             strcpy(entry->val, ptr);
 
-            if ((line = strtok(NULL, "\r\n")))
+            if ((line = strtok_r(NULL, "\r\n", save_ptr)))
                 entry = entry->next = malloc(sizeof(struct lal_entry));
             else {
                 entry->next = NULL;

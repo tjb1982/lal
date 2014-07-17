@@ -100,7 +100,12 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
         sizeof(struct handler_args)
     );
 
-    while (++hitcount) {
+    printf("Lal serving on port %s\n", port);
+
+    int id;
+
+    while (1) {
+        ++hitcount;
 
         request_socket = accept(
             listening_socket,
@@ -108,8 +113,7 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
             &request_addrinfo_socklen
         );
 
-        int id = 0;
-
+        id = 0;
         while (args[id].thread && !args[id].ready) {
             time_t now; time(&now);
             if (now - args[id].created > THREAD_TIMEOUT) {
@@ -136,13 +140,13 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
         pthread_attr_t attr;
         pthread_attr_init(&attr);
         pthread_attr_setstacksize(&attr, 32768);
-//        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
         pthread_create(&args[id].thread, &attr, socket_handler, &args[id]);
 
         pthread_attr_destroy(&attr);
 
-        printf("thread created %i\n", id);
+        //printf("thread created %i\n", id);
         /*else {
 
             pid = fork();
