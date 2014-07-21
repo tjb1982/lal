@@ -23,7 +23,9 @@ struct lal_request {
     struct lal_entry *entries;
     int nentries;
 };
-#endif // REQUEST_H_
+
+char *
+lal_method_to_string(enum lal_http_method m);
 
 char *
 lal_get_header_val (struct lal_request *request, const char *key);
@@ -39,3 +41,4 @@ lal_destroy_request (struct lal_request *request);
 
 struct lal_request *
 lal_create_request (char *src);
+#endif // REQUEST_H_

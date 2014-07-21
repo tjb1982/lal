@@ -2,6 +2,8 @@
 #include "utils.h"
 #include "request.h"
 
+#ifndef RESPONSE_H_
+#define RESPONSE_H_
 struct lal_response {
     char *status;
     struct lal_entry *headers;
@@ -16,3 +18,4 @@ lal_serialize_response(struct lal_response *resp);
 
 void
 lal_destroy_response(struct lal_response *resp);
+#endif
