@@ -18,4 +18,4 @@ lal_serialize_response(struct lal_response *resp);
 
 void
 lal_destroy_response(struct lal_response *resp);
-#endif
+#endif // RESPONSE_H_

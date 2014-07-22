@@ -24,7 +24,7 @@ struct lal_request {
     int nentries;
 };
 
-char *
+const char *
 lal_method_to_string(enum lal_http_method m);
 
 char *

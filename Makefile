@@ -1,4 +1,4 @@
-CC = gcc
+CC = clang
 CFLAGS = -Wall -fpic -O2 -I/usr/include
 
 default: build

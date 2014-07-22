@@ -37,7 +37,7 @@ void
 lal_destroy_routes ();
 
 void
-lal_register_route(enum lal_http_method method, char *route,
+lal_register_route(enum lal_http_method method, const char *route,
                  int(*handler)(struct lal_request *, int));
 
 struct lal_route *

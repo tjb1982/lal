@@ -1,5 +1,18 @@
 #include "request.h"
 
+const char *
+lal_method_to_string(enum lal_http_method m)
+{
+        return m == GET ? "GET"
+        : m == POST ? "POST"
+        : m == PUT ? "PUT"
+        : m == PATCH ? "PATCH"
+        : m == DELETE ? "DELETE"
+        : m == HEAD ? "HEAD"
+        : m == OPTIONS ? "OPTIONS"
+        : "ANY";
+}
+
 char *
 lal_method_to_string(enum lal_http_method m)
 {
@@ -43,7 +56,7 @@ lal_read_header (int sock)
 
     *ptr = '\0';
 
-    if ((header = malloc((strlen(buf) + 1) * sizeof(char))) == NULL)
+    if ((header = (char *)malloc((strlen(buf) + 1) * sizeof(char))) == NULL)
         syslog(LOG_ERR, "malloc failed: %s", strerror(errno));
 
     strcpy(header, buf);

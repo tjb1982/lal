@@ -36,24 +36,24 @@ lal_route_request (void *arg)
 }
 
 void
-lal_register_route (enum lal_http_method method, char *path,
+lal_register_route (enum lal_http_method method, const char *path,
                int(*handler)(struct lal_request *, int))
 {
     struct lal_route *route;
 
     if (routes == NULL) {
-        routes = route = malloc(sizeof(struct lal_route));
+        routes = route = (struct lal_route *)malloc(sizeof(struct lal_route));
     } else {
         route = routes;
         while (route->next)
             route = route->next;
 
-        route->next = malloc(sizeof(struct lal_route));
+        route->next = (struct lal_route *)malloc(sizeof(struct lal_route));
         route = route->next;
     }
 
     if (path) {
-        route->path = malloc((strlen(path) + 1) * sizeof(char));
+        route->path = (char *)malloc((strlen(path) + 1) * sizeof(char));
         strcpy(route->path, path);
     }
     else

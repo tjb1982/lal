@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <syslog.h>
+#include <stdint.h>
 
 #ifndef UTILS_H_
 #define UTILS_H_
@@ -41,6 +42,9 @@ lal_create_body_part();
 
 struct lal_body_part *
 lal_append_to_body(struct lal_body_part *part, const char *src);
+
+struct lal_body_part *
+lal_nappend_to_body(struct lal_body_part *part, const uint8_t *src, size_t len);
 
 size_t
 lal_body_len(struct lal_body_part *part);

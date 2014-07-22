@@ -63,7 +63,7 @@ lal_parse_url_encoded_entries(struct lal_entry *entry, const char *buffer)
 struct lal_entry *
 lal_create_entry()
 {
-    struct lal_entry *entry = malloc(sizeof(struct lal_entry));
+    struct lal_entry *entry = (struct lal_entry *)malloc(sizeof(struct lal_entry));
     entry->key = NULL;
     entry->keylen = 0;
     entry->val = NULL;
@@ -114,7 +114,7 @@ lal_get_entry(struct lal_entry *entry, const char *key)
 struct lal_body_part *
 lal_create_body_part()
 {
-    struct lal_body_part *part = malloc(sizeof(struct lal_body_part));
+    struct lal_body_part *part = (struct lal_body_part *)malloc(sizeof(struct lal_body_part));
     part->part = NULL;
     part->len = 0;
     part->next = NULL;
@@ -133,12 +133,33 @@ lal_append_to_body(struct lal_body_part *part, const char *src)
 
     part->len = strlen(src);
 
-    part->part = malloc((strlen(src) + 1) * sizeof(char));
+    part->part = (char *)malloc((strlen(src) + 1) * sizeof(char));
     strcpy(part->part, src);
 
     part->next = NULL;
 
     return part;
+}
+
+struct lal_body_part *
+lal_nappend_to_body(struct lal_body_part *part, const uint8_t *src, size_t len)
+{
+	if (part->len) {
+		while (part->next) {
+			part = part->next;
+		}
+		part = part->next = lal_create_body_part();
+	}
+
+	part->len = len;
+
+	part->part = malloc(len + 1);
+	memcpy(part->part, src, len);
+	part->part[len] = '\0';
+
+	part->next = NULL;
+
+	return part;
 }
 
 size_t
@@ -153,32 +174,39 @@ lal_body_len(struct lal_body_part *part)
 }
 
 char *
-lal_join_body(struct lal_body_part *body, const char *separator)
+lal_join_body(
+	struct lal_body_part *body_part,
+	const char *separator)
 {
-    int len = 0, count = 0;
-    const char *sep = separator ? separator : "";
-    char *r;
-    struct lal_body_part *part = body;
+	int len = 0, count = 0, total_len = 0;
+	const char *sep = separator ? separator : "";
+	char *ptr, *body;
+	struct lal_body_part *part = body_part;
 
-    while (part) {
-        count++;
-        len += part->len;
-        part = part->next;
-    }
+	while (part) {
+		count++;
+		len += part->len;
+		part = part->next;
+	}
 
-    r = malloc((len + (count * (strlen(sep))) + 1) * sizeof(char));
-    *r = '\0';
+	total_len = len + (--count * (strlen(sep)));
+	ptr = body = (char *)calloc(total_len + 1, sizeof(char));
+	*ptr = '\0';
 
-    part = body;
-    while (part) {
-        if (part->part) {
-            strcat(r, part->part);
-            if (part->next)
-                strcat(r, sep);
-        }
-        part = part->next;
-    }
-    return r;
+	part = body_part;
+	while (part) {
+		if (part->part) {
+			memcpy(ptr, part->part, part->len);
+			ptr += part->len;
+			if (part->next) {
+				ptr = (char *)memcpy(ptr, sep, strlen(sep));
+				ptr += strlen(sep);
+			}
+		}
+		part = part->next;
+	}
+	body[total_len] = '\0';
+	return body;
 }
 
 void
