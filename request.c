@@ -14,19 +14,6 @@ lal_method_to_string(enum lal_http_method m)
 }
 
 char *
-lal_method_to_string(enum lal_http_method m)
-{
-	return m == GET ? "GET"
-	: m == POST ? "POST"
-	: m == PUT ? "PUT"
-	: m == PATCH ? "PATCH"
-	: m == DELETE ? "DELETE"
-	: m == HEAD ? "HEAD"
-	: m == OPTIONS ? "OPTIONS"
-	: "ANY";
-}
-
-char *
 lal_get_header_val(struct lal_request *request, const char *key)
 {
     struct lal_entry *entry = request->entries;

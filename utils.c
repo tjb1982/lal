@@ -118,6 +118,7 @@ lal_create_body_part()
     part->part = NULL;
     part->len = 0;
     part->next = NULL;
+    part->prev = NULL;
     return part;
 }
 
@@ -128,7 +129,9 @@ lal_append_to_body(struct lal_body_part *part, const char *src)
         while (part->next) {
             part = part->next;
         }
-        part = part->next = lal_create_body_part();
+	part->next = lal_create_body_part();
+	part->next->prev = part;
+	part = part->next;
     }
 
     part->len = strlen(src);
@@ -148,7 +151,9 @@ lal_nappend_to_body(struct lal_body_part *part, const uint8_t *src, size_t len)
 		while (part->next) {
 			part = part->next;
 		}
-		part = part->next = lal_create_body_part();
+		part->next = lal_create_body_part();
+		part->next->prev = part;
+		part = part->next;
 	}
 
 	part->len = len;
@@ -158,6 +163,27 @@ lal_nappend_to_body(struct lal_body_part *part, const uint8_t *src, size_t len)
 	part->part[len] = '\0';
 
 	part->next = NULL;
+
+	return part;
+}
+
+struct lal_body_part *
+lal_prepend_to_body(struct lal_body_part *part, const char *src)
+{
+	if (part->len) {
+		while (part->prev) {
+			part = part->prev;
+		}
+		part->prev = lal_create_body_part();
+		part->prev->next = part;
+		part = part->prev;
+	}
+	part->len = strlen(src);
+
+	part->part = (char *)malloc((strlen(src) + 1) * sizeof(char));
+	strcpy(part->part, src);
+	
+	part->prev = NULL;
 
 	return part;
 }

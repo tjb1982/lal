@@ -19,8 +19,8 @@ struct lal_body_part {
     char *part;
     size_t len;
     struct lal_body_part *next;
+    struct lal_body_part *prev;
 };
-#endif // UTILS_H_
 
 void
 lal_url_decode(char *dst, const char *src);
@@ -46,6 +46,9 @@ lal_append_to_body(struct lal_body_part *part, const char *src);
 struct lal_body_part *
 lal_nappend_to_body(struct lal_body_part *part, const uint8_t *src, size_t len);
 
+struct lal_body_part *
+lal_prepend_to_body(struct lal_body_part *part, const char *src);
+
 size_t
 lal_body_len(struct lal_body_part *part);
 
@@ -57,3 +60,4 @@ lal_destroy_entries(struct lal_entry *entries);
 
 void
 lal_destroy_body(struct lal_body_part *body);
+#endif // UTILS_H_
