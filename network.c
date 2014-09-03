@@ -52,7 +52,7 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port)
     int status;
     static struct addrinfo hints, *host; /* static; i.e., initialized to 0 */
 
-    hints.ai_family = AF_UNSPEC; /* IPv4 or IPv6 */
+    hints.ai_family = AF_INET; //AF_UNSPEC; /* IPv4 or IPv6 */
     hints.ai_socktype = SOCK_STREAM; /* TCP */
 
     status = getaddrinfo(
@@ -104,8 +104,7 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
 
     int id;
 
-    while (1) {
-        ++hitcount;
+    while (++hitcount) {
 
         request_socket = accept(
             listening_socket,
@@ -123,14 +122,6 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
             id = ++id == THREADNUM ? id - THREADNUM : id;
         }
 
-        /*if (args[id].thread) {
-            int perr = pthread_join(args[id].thread, NULL);
-            if (perr) {
-                syslog(LOG_ERR, "pthread_join: %s", strerror(perr));
-                pthread_cancel(args[id].thread);
-            }
-        }*/
-
         args[id].socket = request_socket;
         args[id].hitcount = hitcount;
         args[id].ready = 0;
@@ -145,29 +136,5 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
         pthread_create(&args[id].thread, &attr, socket_handler, &args[id]);
 
         pthread_attr_destroy(&attr);
-
-        //printf("thread created %i\n", id);
-        /*else {
-
-            pid = fork();
-
-            if (pid < 0) {
-                syslog(LOG_ERR, "fork failed: %s", strerror(errno));
-                exit(1);
-            }
-
-            if (pid == 0) {
-                // child process
-                (void) close(listening_socket);
-                (void) socket_handler (&request_socket);
-                (void) close(request_socket);
-                exit(1);
-            }
-            else
-                // parent process
-                (void) close(request_socket);
-
-        }*/
-
     }
 }
