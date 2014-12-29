@@ -14,12 +14,12 @@
 #define ROUTE_H_
 extern struct lal_route *routes;
 
-struct handler_args {
+struct thread_state {
     pthread_t thread;
     int socket;
     size_t hitcount;
     int ready;
-    time_t created;
+    time_t job_started;
 };
 
 struct lal_route {

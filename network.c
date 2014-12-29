@@ -73,7 +73,8 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
                   int daemonize,
                   int threaded)
 {
-    int /*pid, */listening_socket, request_socket, hitcount = 0;
+    int id = 0, listening_socket, request_socket, hitcount = 0;
+    pthread_attr_t pthread_attr;
 
     struct addrinfo request_addrinfo,
                     *host_addrinfo = lal_get_host_addrinfo_or_die(
@@ -95,14 +96,16 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
     (void) signal(SIGHUP, SIG_IGN); /* ignore terminal hangups */
     (void) setpgid(0,0); /* break away from process group */
 
-    struct handler_args *args = calloc(
+    struct thread_state *args = calloc(
         THREADNUM,
-        sizeof(struct handler_args)
+        sizeof(struct thread_state)
     );
 
     printf("Lal serving on port %s\n", port);
 
-    int id;
+    pthread_attr_init(&pthread_attr);
+    pthread_attr_setstacksize(&pthread_attr, 32768);
+    pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED);
 
     while (++hitcount) {
 
@@ -115,7 +118,7 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
         id = 0;
         while (args[id].thread && !args[id].ready) {
             time_t now; time(&now);
-            if (now - args[id].created > THREAD_TIMEOUT) {
+            if (now - args[id].job_started > THREAD_TIMEOUT) {
                 pthread_cancel(args[id].thread);
                 break;
             }
@@ -125,16 +128,13 @@ lal_serve_forever(void *(*socket_handler)(void *arg),
         args[id].socket = request_socket;
         args[id].hitcount = hitcount;
         args[id].ready = 0;
-        args[id].thread = 0;
-        time(&args[id].created);
+        time(&args[id].job_started);
 
-        pthread_attr_t attr;
-        pthread_attr_init(&attr);
-        pthread_attr_setstacksize(&attr, 32768);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-        pthread_create(&args[id].thread, &attr, socket_handler, &args[id]);
-
-        pthread_attr_destroy(&attr);
+        if (!args[id].thread) {
+            pthread_create(
+              &args[id].thread, &pthread_attr, socket_handler, &args[id]
+            );
+        }
     }
+    pthread_attr_destroy(&pthread_attr);
 }

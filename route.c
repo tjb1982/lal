@@ -5,7 +5,7 @@ struct lal_route *routes = NULL;
 void *
 lal_route_request (void *arg)
 {
-    struct handler_args *args = arg;
+    struct thread_state *args = arg;
     char *header;
     struct lal_request *request;
     struct lal_route *route;
@@ -31,6 +31,12 @@ lal_route_request (void *arg)
     close(args->socket);
 
     args->ready = 1;
+
+    while (args->ready)
+        ;
+
+    lal_route_request(arg);
+
     //pthread_exit(NULL); implied by returning NULL below
     return NULL;
 }
