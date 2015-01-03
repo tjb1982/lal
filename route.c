@@ -5,12 +5,12 @@ struct lal_route *routes = NULL;
 void *
 lal_route_request (void *arg)
 {
-    struct thread_state *args = arg;
+    Thread *thread = arg;
     char *header;
     struct lal_request *request;
     struct lal_route *route;
 
-    header = lal_read_header(args->socket);
+    header = lal_read_header(thread->socket);
     request = lal_create_request(header);
 
     if (!~request->method) {
@@ -23,21 +23,23 @@ lal_route_request (void *arg)
     route = lal_get_route(request);
 
     if (route)
-        (void) route->handler(request, args->socket);
+        (void) route->handler(request, thread->socket);
     else
         syslog(LOG_ERR, "lal_route_request failed: route not found");
 
     lal_destroy_request(request);
-    close(args->socket);
+    close(thread->socket);
 
-    args->ready = 1;
+    thread->ready = 1;
 
-    while (args->ready)
-        ;
+    while (thread->ready) {
+	fflush(stdin);
+//        printf("%lu %i\n", thread->id, thread->ready);
+    }
 
     lal_route_request(arg);
 
-    //pthread_exit(NULL); implied by returning NULL below
+    pthread_exit(NULL); // implied by returning NULL below
     return NULL;
 }
 

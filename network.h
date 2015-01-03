@@ -1,3 +1,7 @@
+#ifndef _NETWORK_H_
+#define _NETWORK_H_
+
+#include <stdbool.h>
 #include <sys/socket.h>
 #include <stdio.h>
 #include <netdb.h>
@@ -6,9 +10,24 @@
 #include <pthread.h>
 #include "route.h"
 
-#define BOCKLOG 200
-#define THREADNUM 40
-#define THREAD_TIMEOUT 10
+#define BACKLOG 200
+#define THREADNUM 8
+#define THREAD_TIMEOUT 0
+
+
+typedef struct Job {
+	void *(*job)(void *args);
+	bool running;
+} Job;
+
+typedef struct Thread {
+	pthread_t id;
+	int socket;
+	size_t hitcount;
+	int ready;
+	Job *current_job;
+	time_t job_started;
+} Thread;
 
 int
 lal_get_socket_or_die (struct addrinfo *host);
@@ -20,8 +39,11 @@ struct addrinfo *
 lal_get_host_addrinfo_or_die (const char *hostname, const char *port);
 
 void
-lal_serve_forever(void *(*socket_handler)(void *arg),
-                  const char *host,
-                  const char *port,
-                  int daemonize,
-                  int threaded);
+lal_serve_forever (
+	void *(*socket_handler)(void *arg),
+	const char *host,
+	const char *port
+);
+
+
+#endif // _NETWORK_H_

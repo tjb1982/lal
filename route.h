@@ -1,3 +1,6 @@
+#ifndef ROUTE_H_
+#define ROUTE_H_
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,19 +11,10 @@
 #include <execinfo.h>
 #include <pthread.h>
 #include <signal.h>
+#include "network.h"
 #include "request.h"
 
-#ifndef ROUTE_H_
-#define ROUTE_H_
 extern struct lal_route *routes;
-
-struct thread_state {
-    pthread_t thread;
-    int socket;
-    size_t hitcount;
-    int ready;
-    time_t job_started;
-};
 
 struct lal_route {
     char *path;
@@ -28,7 +22,6 @@ struct lal_route {
     int(*handler)(struct lal_request *, int sock);
     struct lal_route *next;
 };
-#endif // ROUTE_H_
 
 void *
 lal_route_request (void *arg);
@@ -42,3 +35,5 @@ lal_register_route(enum lal_http_method method, const char *route,
 
 struct lal_route *
 lal_get_route(struct lal_request *request);
+
+#endif // ROUTE_H_
