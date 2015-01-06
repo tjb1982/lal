@@ -3,45 +3,48 @@
 int
 lal_get_socket_or_die (struct addrinfo *host)
 {
+	int sock = socket(
+		host->ai_family,
+		host->ai_socktype,
+		host->ai_protocol
+	);
 
-    int sock = socket(
-        host->ai_family,
-        host->ai_socktype,
-        host->ai_protocol
-    );
+	if (sock < 0) {
+		fprintf(stderr, "Unable to connect to socket: %s\n", strerror(errno));
+		exit(1);
+	}
 
-    if (sock < 0) {
-        syslog(LOG_ERR, "Unable to connect to socket: %s", strerror(errno));
-        exit(1);
-    }
-
-    return sock;
+	return sock;
 
 }
 
 int
 lal_bind_and_listen_or_die (int sock, struct addrinfo *host)
 {
+	int status = bind(
+		sock,
+		host->ai_addr,
+		host->ai_addrlen
+	);
 
-    int status = bind(
-        sock,
-        host->ai_addr,
-        host->ai_addrlen
-    );
+	if (status < 0) {
+		fprintf(stderr, "Error binding socket to port: %s\n", strerror(errno));
+		exit(1);
+	}
+	
+	status = listen(sock, BACKLOG);
+	
+	if (status < 0) {
+		fprintf(stderr, "Error listening to socket: %s\n", strerror(errno));
+		exit(1);
+	}
 
-    if (status < 0) {
-        syslog(LOG_ERR, "Error binding socket to port: %s", strerror(errno));
-        exit(1);
-    }
+	int opt = 1;
+	if (!~setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt))) {
+		fprintf(stderr, "setsockopt failed: %s\n", strerror(errno));
+	}
 
-    status = listen(sock, BACKLOG);
-
-    if (status < 0) {
-        syslog(LOG_ERR, "Error listening to socket: %s", strerror(errno));
-        exit(1);
-    }
-
-    return status;
+	return status;
 
 }
 
@@ -60,20 +63,37 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port)
     );
 
     if (status != 0)
-        syslog(LOG_ERR, "getaddrinfo failed: %s", gai_strerror(status));
+        fprintf(stderr, "getaddrinfo failed: %s\n", gai_strerror(status));
 
     return host;
 
 }
 
+int volatile listening_socket = 0;
+int volatile accept_socket = 0;
+
+void
+handleINT(int sig)
+{
+	if (listening_socket) {
+		char buf[20];
+		signal(sig, SIG_IGN);
+		snprintf(buf, 20, "\nreceived signal %i\n", sig);
+		write(2, buf, 20);
+		close(listening_socket);
+	}
+	exit(0);
+}
+
 void *
 loop(void *args) {
 	Thread *thread = args;
-	while (thread->id) {
-		thread->current_job->job(args);
+	while (!thread->ready) {
+		thread->job(args);
+		shutdown(thread->socket, SHUT_RDWR);
+		close(thread->socket);
 		thread->ready = true;
-	
-		while (!thread->ready)
+		while (thread->ready)
 			;
 	}
 	return NULL;
@@ -81,11 +101,12 @@ loop(void *args) {
 
 void
 lal_serve_forever(
-	void *(*job)(void *arg),
 	const char *host,
-	const char *port
+	const char *port,
+	int (*job)(void *arg),
+	void *extra
 ) {
-	int id = 0, job_id = 0, listening_socket, request_socket, hitcount = 0;
+	int id = 0, /*listening_socket, */request_socket, hitcount = 0, sockopt = 1;
 	pthread_attr_t pthread_attr;
 
 	struct addrinfo
@@ -103,41 +124,37 @@ lal_serve_forever(
 
 	freeaddrinfo(host_addrinfo);
 
-//	if (daemonize)
-//		if (fork() != 0) exit(0); /* daemonize */
-//	(void) signal(SIGCLD, SIG_IGN); /* ignore child death */
-//	(void) signal(SIGHUP, SIG_IGN); /* ignore terminal hangups */
-//	(void) setpgid(0,0); /* break away from process group */
+	signal(SIGINT, handleINT);
 
 	Thread *threads = calloc(
 		THREADNUM,
 		sizeof(Thread)
 	);
 
-	Job *backlog = calloc(
-		BACKLOG,
-		sizeof(Job)
-	);
-
 	pthread_attr_init(&pthread_attr);
 	pthread_attr_setstacksize(&pthread_attr, 32768);
-//	pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED);
 
 	printf("Lal serving on port %s\n", port);
 
 	while (++hitcount) {
-	
+
 		request_socket = accept(
 			listening_socket,
 			(struct sockaddr *) &request_addrinfo,
 			&request_addrinfo_socklen
 		);
 
+		if (!~setsockopt(request_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&sockopt, sizeof(sockopt))) {
+			fprintf(stderr, "setsockopt failed: %s\n", strerror(errno));
+		}
+
 		id = 0;
 		while (threads[id].id && !threads[id].ready) {
 			time_t now; time(&now);
-			if (now - threads[id].job_started == THREAD_TIMEOUT) {
+			if (now - threads[id].job_started >= THREAD_TIMEOUT) {
+				fprintf(stderr, "thread %li cancelled: Timed out\n", (long)threads[id].id);
 				pthread_cancel(threads[id].id);
+				close(threads[id].socket);
 				threads[id].ready = true;
 				threads[id].id = 0;
 				break;
@@ -147,27 +164,43 @@ lal_serve_forever(
 
 		threads[id].socket = request_socket;
 		threads[id].hitcount = hitcount;
-//		job_id = 0; 
-printf("job_id %i\n", threads[id].current_job);
-//		while (threads[id].current_job && threads[id].current_job->running)
-			job_id = (++job_id == BACKLOG) ? (job_id - BACKLOG) : job_id;
-		Job j = backlog[job_id];
-		j.running = false;
-		j.job = job;
-		threads[id].current_job = &j;
 		threads[id].job_started = time(&threads[id].job_started);
 		threads[id].ready = false;
 
 		if (!threads[id].id) {
+			int attempts = 0;
 try_again:
+			fprintf(stderr, "creating new thread....");
+			threads[id].job = job;
+			threads[id].extra = extra;
+
 			if (pthread_create(
 				&threads[id].id, &pthread_attr, loop, &threads[id]
 			)) {
-printf("trying again....\n");
+				fprintf(
+					stderr,
+					"pthread_create failed: cancelling thread %li. Ready?: %i\n",
+					threads[id].id,
+					threads[id].ready
+				);
 				pthread_cancel(threads[id].id);
-				goto try_again;
+				if (++attempts <= 10) {
+					sleep(1);
+					goto try_again;
+				}
+				else {
+					fprintf(
+						stderr,
+						"%i attempts to pthread_create failed. Shutting down.\n",
+						attempts
+					);
+					handleINT(SIGINT);
+				}
 			}
-printf("pthread_create called: %li ready?: %i\n", threads[id].id, threads[id].ready);
+			else {
+				fprintf(stderr, "%li\n", threads[id].id);
+				attempts = 0;
+			}
 		}
 	}
 	pthread_attr_destroy(&pthread_attr);

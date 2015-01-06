@@ -12,20 +12,15 @@
 
 #define BACKLOG 200
 #define THREADNUM 8
-#define THREAD_TIMEOUT 0
-
-
-typedef struct Job {
-	void *(*job)(void *args);
-	bool running;
-} Job;
+#define THREAD_TIMEOUT 1
 
 typedef struct Thread {
 	pthread_t id;
 	int socket;
 	size_t hitcount;
-	int ready;
-	Job *current_job;
+	int volatile ready;
+	int (*job)(void *args);
+	void *extra;
 	time_t job_started;
 } Thread;
 
@@ -40,9 +35,10 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port);
 
 void
 lal_serve_forever (
-	void *(*socket_handler)(void *arg),
 	const char *host,
-	const char *port
+	const char *port,
+	int (*socket_handler)(void *arg),
+	void *extra
 );
 
 

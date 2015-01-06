@@ -1,8 +1,6 @@
 #include "route.h"
 
-struct lal_route *routes = NULL;
-
-void *
+int
 lal_route_request (void *arg)
 {
     Thread *thread = arg;
@@ -20,63 +18,66 @@ lal_route_request (void *arg)
 
     free(header);
 
-    route = lal_get_route(request);
+    route = lal_get_route((struct lal_route *)thread->extra, request);
 
     if (route)
         (void) route->handler(request, thread->socket);
     else
-        syslog(LOG_ERR, "lal_route_request failed: route not found");
+        fprintf(stderr, "lal_route_request failed: route not found");
 
     lal_destroy_request(request);
-    close(thread->socket);
 
-    thread->ready = 1;
-
-    while (thread->ready) {
-	fflush(stdin);
-//        printf("%lu %i\n", thread->id, thread->ready);
-    }
-
-    lal_route_request(arg);
-
-    pthread_exit(NULL); // implied by returning NULL below
-    return NULL;
-}
-
-void
-lal_register_route (enum lal_http_method method, const char *path,
-               int(*handler)(struct lal_request *, int))
-{
-    struct lal_route *route;
-
-    if (routes == NULL) {
-        routes = route = (struct lal_route *)malloc(sizeof(struct lal_route));
-    } else {
-        route = routes;
-        while (route->next)
-            route = route->next;
-
-        route->next = (struct lal_route *)malloc(sizeof(struct lal_route));
-        route = route->next;
-    }
-
-    if (path) {
-        route->path = (char *)malloc((strlen(path) + 1) * sizeof(char));
-        strcpy(route->path, path);
-    }
-    else
-        route->path = NULL;
-
-    route->method = method;
-    route->handler = handler;
-    route->next = NULL;
-
-    syslog(LOG_INFO, "route created: %s, %i, %p\n",
-           route->path, route->method, (void *)route->handler);
+    return EXIT_SUCCESS;
 }
 
 struct lal_route *
-lal_get_route (struct lal_request *request)
+lal_init_routes()
+{
+	struct lal_route *routes = (struct lal_route *)malloc(sizeof(struct lal_route));
+	routes->path = NULL;
+	routes->method = 0;
+	routes->handler = NULL;
+	routes->next = NULL;
+	return routes;
+}
+
+void
+lal_register_route (
+	struct lal_route *routes,
+	enum lal_http_method method,
+	const char *path,
+	int(*handler)(struct lal_request *, int)
+) {
+	struct lal_route *route = routes;
+
+	if (!handler) {
+		fprintf(stderr, "lal_register_route failed: No handler specified\n");
+	}
+	
+	while (route->next)
+		route = route->next;
+	
+	if (route->handler) {
+		route->next = (struct lal_route *)malloc(sizeof(struct lal_route));
+		route = route->next;
+	}
+
+	if (path) {
+		route->path = (char *)malloc((strlen(path) + 1) * sizeof(char));
+		strcpy(route->path, path);
+	}
+	else route->path = NULL;
+	
+	route->method = method;
+	route->handler = handler;
+	route->next = NULL;
+	
+	fprintf(stderr, "route registered: %s, %i, %p\n",
+		route->path, route->method, (void *)route->handler);
+}
+
+struct lal_route *
+lal_get_route (struct lal_route *routes, struct lal_request *request)
 {
     struct lal_route *route = routes;
     char *route_pos, *request_pos;
@@ -124,16 +125,16 @@ compare:
 }
 
 void
-lal_destroy_routes ()
+lal_destroy_routes (struct lal_route *routes)
 {
-    struct lal_route *prev;
-    int i = 0;
-    while (routes) {
-        free(routes->path);
-        prev = routes;
-        routes = routes->next;
-        free(prev);
-        i++;
-    }
-    syslog(LOG_INFO, "destroyed %i routes\n", i);
+	struct lal_route *prev;
+	int i = 0;
+	while (routes) {
+		free(routes->path);
+		prev = routes;
+		routes = routes->next;
+		free(prev);
+		i++;
+	}
+	fprintf(stderr, "destroyed %i routes\n", i);
 }
