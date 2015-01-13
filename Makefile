@@ -11,7 +11,7 @@ build: network.c route.c utils.c
 	$(CC) $(CFLAGS) -c request.c -o obj/request.o
 	$(CC) $(CFLAGS) -c response.c -o obj/response.o
 	$(CC) $(CFLAGS) -c utils.c -o obj/utils.o
-	$(CC) -shared -L/usr/lib obj/network.o obj/route.o obj/request.o obj/response.o obj/utils.o -o bin/liblal.so -s
+	$(CC) -shared -L/usr/lib -lbsd obj/network.o obj/route.o obj/request.o obj/response.o obj/utils.o -o bin/liblal.so -s
 
 install: bin/liblal.so
 	mkdir -p /usr/local/include/lal

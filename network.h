@@ -12,9 +12,9 @@
 
 #define BACKLOG 200
 #define THREADNUM 8
-#define THREAD_TIMEOUT 1
+#define THREAD_TIMEOUT 1000
 
-typedef struct Thread {
+struct lal_thread {
 	pthread_t id;
 	int socket;
 	size_t hitcount;
@@ -22,7 +22,7 @@ typedef struct Thread {
 	int (*job)(void *args);
 	void *extra;
 	time_t job_started;
-} Thread;
+};
 
 int
 lal_get_socket_or_die (struct addrinfo *host);

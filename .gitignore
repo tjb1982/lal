@@ -2,3 +2,6 @@ obj/
 lal.*
 *.so
 *.swp
+*.swo
+node_modules/
+docs/

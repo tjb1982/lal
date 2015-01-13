@@ -70,7 +70,6 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port)
 }
 
 int volatile listening_socket = 0;
-int volatile accept_socket = 0;
 
 void
 handleINT(int sig)
@@ -87,7 +86,7 @@ handleINT(int sig)
 
 void *
 loop(void *args) {
-	Thread *thread = args;
+	struct lal_thread *thread = args;
 	while (!thread->ready) {
 		thread->job(args);
 		shutdown(thread->socket, SHUT_RDWR);
@@ -106,7 +105,7 @@ lal_serve_forever(
 	int (*job)(void *arg),
 	void *extra
 ) {
-	int id = 0, /*listening_socket, */request_socket, hitcount = 0, sockopt = 1;
+	int id = 0, request_socket, hitcount = 0, sockopt = 1;
 	pthread_attr_t pthread_attr;
 
 	struct addrinfo
@@ -118,7 +117,6 @@ lal_serve_forever(
 
 	socklen_t request_addrinfo_socklen = sizeof request_addrinfo;
 
-
 	listening_socket = lal_get_socket_or_die(host_addrinfo);
 	(void) lal_bind_and_listen_or_die(listening_socket, host_addrinfo);
 
@@ -126,15 +124,15 @@ lal_serve_forever(
 
 	signal(SIGINT, handleINT);
 
-	Thread *threads = calloc(
+	struct lal_thread *threads = calloc(
 		THREADNUM,
-		sizeof(Thread)
+		sizeof(struct lal_thread)
 	);
 
 	pthread_attr_init(&pthread_attr);
 	pthread_attr_setstacksize(&pthread_attr, 32768);
 
-	printf("Lal serving on port %s\n", port);
+	printf("Lal serving at %s:%s\n", host, port);
 
 	while (++hitcount) {
 

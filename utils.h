@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <syslog.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #ifndef UTILS_H_
 #define UTILS_H_
@@ -16,11 +17,21 @@ struct lal_entry {
 };
 
 struct lal_body_part {
-    char *part;
+    const char *val;
     size_t len;
     struct lal_body_part *next;
     struct lal_body_part *prev;
 };
+
+enum lal_content_type {
+	TEXT,
+	HTML,
+	JSON,
+	NONE
+};
+
+const char *
+lal_content_type_to_string(enum lal_content_type t);
 
 void
 lal_url_decode(char *dst, const char *src);
@@ -29,7 +40,7 @@ void
 lal_parse_url_encoded_entries(struct lal_entry *entry, const char *body);
 
 struct lal_entry *
-lal_create_entry();
+lal_new_entry();
 
 struct lal_entry *
 lal_append_to_entries(struct lal_entry *entry, const char *key, const char *val);
@@ -38,7 +49,10 @@ char *
 lal_get_entry(struct lal_entry *entry, const char *key);
 
 struct lal_body_part *
-lal_create_body_part();
+lal_new_body_part();
+
+struct lal_body_part *
+lal_create_body_part(const char *init);
 
 struct lal_body_part *
 lal_append_to_body(struct lal_body_part *part, const char *src);

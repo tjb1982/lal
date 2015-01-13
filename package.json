@@ -1,0 +1,7 @@
+{
+	"name":"lal",
+	"dependencies":{
+		"groc":"*",
+		"serve":"*"
+	}
+}

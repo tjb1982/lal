@@ -3,20 +3,21 @@
 struct lal_response *
 lal_create_response(const char *status)
 {
-    struct lal_response *resp = malloc(sizeof(struct lal_response));
-    resp->status = malloc(sizeof(char) * (strlen(status) + 1));
-    strcpy(resp->status, (status ? status : "200 OK"));
-    resp->headers = lal_create_entry();
-    resp->body = lal_create_body_part();
+	struct lal_response *resp = malloc(sizeof(struct lal_response));
+	int len = strlen(status);
+	resp->status = calloc(sizeof(char), len + 1);
+	memcpy(resp->status, status, len);
+	resp->headers = lal_new_entry();
+	resp->body = lal_new_body_part();
 
-    return resp;
+	return resp;
 }
 
 char *
 lal_serialize_response(struct lal_response *resp)
 {
     char *r;
-    struct lal_body_part *header = lal_create_body_part();
+    struct lal_body_part *header = lal_create_body_part("");
 
     lal_append_to_body(header, "HTTP/1.1 ");
     lal_append_to_body(header, resp->status);

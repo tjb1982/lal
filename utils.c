@@ -1,5 +1,19 @@
 #include "utils.h"
 
+const char *
+lal_content_type_to_string(enum lal_content_type t)
+{
+	char *ct = t == TEXT ? "text/plain"
+	: t == HTML ? "text/html"
+	: t == JSON ? "application/json"
+	: NULL;
+	int len = strlen(ct);
+	char *ret = malloc(sizeof(char) * len + 1);
+	memcpy(ret, ct, len);
+	*(ret + len) = '\0';
+	return ret;
+}
+
 void
 lal_url_decode(char *dst, const char *src)
 {
@@ -61,7 +75,7 @@ lal_parse_url_encoded_entries(struct lal_entry *entry, const char *buffer)
 }
 
 struct lal_entry *
-lal_create_entry()
+lal_new_entry()
 {
     struct lal_entry *entry = (struct lal_entry *)malloc(sizeof(struct lal_entry));
     entry->key = NULL;
@@ -82,7 +96,7 @@ lal_append_to_entries(struct lal_entry *entry, const char *key, const char *val)
             entry = entry->next;
         }
         if (strcmp(entry->key, key))
-            entry = entry->next = lal_create_entry();
+            entry = entry->next = lal_new_entry();
         else {
             free(entry->key);
             free(entry->val);
@@ -112,36 +126,46 @@ lal_get_entry(struct lal_entry *entry, const char *key)
 }
 
 struct lal_body_part *
-lal_create_body_part()
+lal_new_body_part()
 {
-    struct lal_body_part *part = (struct lal_body_part *)malloc(sizeof(struct lal_body_part));
-    part->part = NULL;
-    part->len = 0;
-    part->next = NULL;
-    part->prev = NULL;
-    return part;
+	struct lal_body_part *part = (struct lal_body_part *) malloc(sizeof(struct lal_body_part));
+	part->val = NULL;
+	part->len = 0;
+	part->next = NULL;
+	part->prev = NULL;
+	return part;
+}
+
+struct lal_body_part *
+lal_create_body_part(const char *init)
+{
+	struct lal_body_part *part = (struct lal_body_part *) malloc(
+		sizeof(struct lal_body_part)
+	);
+	int len = strlen(init);
+	char *pt = malloc(sizeof(char) * len);
+
+	memcpy(pt, init, len);
+
+	part->val = pt;
+	part->len = len;
+	part->next = NULL;
+	part->prev = NULL;
+	return part;
 }
 
 struct lal_body_part *
 lal_append_to_body(struct lal_body_part *part, const char *src)
 {
-    if (part->len) {
-        while (part->next) {
-            part = part->next;
-        }
-	part->next = lal_create_body_part();
-	part->next->prev = part;
-	part = part->next;
-    }
+    	while (part->next) {
+    	    part = part->next;
+    	}
+    	part->next = lal_create_body_part(src);
+    	part->next->prev = part;
+    	part = part->next;
+	part->next = NULL;
 
-    part->len = strlen(src);
-
-    part->part = (char *)malloc((strlen(src) + 1) * sizeof(char));
-    strcpy(part->part, src);
-
-    part->next = NULL;
-
-    return part;
+	return part;
 }
 
 struct lal_body_part *
@@ -151,17 +175,14 @@ lal_nappend_to_body(struct lal_body_part *part, const uint8_t *src, size_t len)
 		while (part->next) {
 			part = part->next;
 		}
-		part->next = lal_create_body_part();
+		part->next = lal_new_body_part();
 		part->next->prev = part;
 		part = part->next;
 	}
 
 	part->len = len;
-
-	part->part = malloc(len + 1);
-	memcpy(part->part, src, len);
-	part->part[len] = '\0';
-
+	part->val = malloc(len);
+	memcpy((void *)part->val, src, len);
 	part->next = NULL;
 
 	return part;
@@ -174,15 +195,10 @@ lal_prepend_to_body(struct lal_body_part *part, const char *src)
 		while (part->prev) {
 			part = part->prev;
 		}
-		part->prev = lal_create_body_part();
+		part->prev = lal_create_body_part(src);
 		part->prev->next = part;
 		part = part->prev;
 	}
-	part->len = strlen(src);
-
-	part->part = (char *)malloc((strlen(src) + 1) * sizeof(char));
-	strcpy(part->part, src);
-	
 	part->prev = NULL;
 
 	return part;
@@ -204,34 +220,48 @@ lal_join_body(
 	struct lal_body_part *body_part,
 	const char *separator)
 {
-	int len = 0, count = 0, total_len = 0;
+	/*
+	 * Here `separator` needs to be converted into a `char *` in 
+	 * order to calculate its length, etc. using `string.h` tools.
+	 * */
 	const char *sep = separator ? separator : "";
+	int len = 0, count = 0, seplen = strlen(sep);
 	char *ptr, *body;
 	struct lal_body_part *part = body_part;
 
+	/* 
+	 * Add each `part->len` to get the total memory required
+	 * to concatenate all of the strings.
+	 * */
 	while (part) {
 		count++;
 		len += part->len;
 		part = part->next;
 	}
 
-	total_len = len + (--count * (strlen(sep)));
-	ptr = body = (char *)calloc(total_len + 1, sizeof(char));
+	/*
+	 * The length of `separator` is multiplied by the `count -1` because we
+	 * don't want a trailing `separator` at the end.
+	 * */
+	len = len + (--count * seplen);
+	ptr = body = (char *)calloc(len + 1, sizeof(char));
 	*ptr = '\0';
 
+	/* i.e., rewind */
 	part = body_part;
 	while (part) {
-		if (part->part) {
-			memcpy(ptr, part->part, part->len);
+		if (part->val) {
+			memcpy(ptr, part->val, part->len);
 			ptr += part->len;
 			if (part->next) {
-				ptr = (char *)memcpy(ptr, sep, strlen(sep));
-				ptr += strlen(sep);
+				ptr = (char *)memcpy(ptr, sep, seplen);
+				ptr += seplen;
 			}
 		}
 		part = part->next;
 	}
-	body[total_len] = '\0';
+	/* `Null`-terminated C string */
+	body[len] = '\0';
 	return body;
 }
 
@@ -256,7 +286,7 @@ lal_destroy_body(struct lal_body_part *body)
     int i = 0;
 
     while (body) {
-        free(body->part);
+        free((void *)body->val);
         prev = body;
         body = body->next;
         free(prev);
