@@ -56,7 +56,7 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port)
     int status;
     static struct addrinfo hints, *host; /* static; i.e., initialized to 0 */
 
-    hints.ai_family = AF_INET; //AF_UNSPEC; /* IPv4 or IPv6 */
+    hints.ai_family = AF_UNSPEC; /* IPv4 or IPv6 */
     hints.ai_socktype = SOCK_STREAM; /* TCP */
 
     status = getaddrinfo(
