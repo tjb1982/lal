@@ -15,6 +15,8 @@ lal_route_request (void *arg)
 	}
 
 	route = lal_get_route((struct lal_route *)thread->extra, request);
+	write(1, route->path, route->pathlen);
+	printf(", %i, %p\n", route->method, route->handler);
 
 	if (route)
 		(void) route->handler(thread->socket, request);
@@ -158,20 +160,23 @@ compare:
 		if (*rpos == ':') {
 
 			while (*rpos != '/' && !path_exhausted(rpos, route->path, route->pathlen))
-			    rpos++;
+				rpos++;
 
 			while (*qpos != '/' && !path_exhausted(qpos, request->path, request->pathlen))
-			    qpos++;
+				qpos++;
 
 			if (
 				path_exhausted(rpos, route->path, route->pathlen) &&
 				path_exhausted(qpos, request->path, request->pathlen)
 			) return route;
 			else if (*rpos == '/' && *qpos == '/')
-			    goto compare;
-			else if (*rpos == '/' || *qpos == '/')
+				goto compare;
+			else if (*rpos == '/' || *qpos == '/') {
+				if (request->pathlen - (qpos - request->path) > 1)
 					goto next_route;
-			else goto next_route; 
+				else return route;
+			}
+			else goto next_route;
 
 		}
 

@@ -21,6 +21,12 @@ lal_get_socket_or_die (struct addrinfo *host)
 int
 lal_bind_and_listen_or_die (int sock, struct addrinfo *host)
 {
+
+	int opt = 1;
+	if (!~setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt))) {
+		fprintf(stderr, "setsockopt failed: %s\n", strerror(errno));
+	}
+
 	int status = bind(
 		sock,
 		host->ai_addr,
@@ -37,11 +43,6 @@ lal_bind_and_listen_or_die (int sock, struct addrinfo *host)
 	if (status < 0) {
 		fprintf(stderr, "Error listening to socket: %s\n", strerror(errno));
 		exit(1);
-	}
-
-	int opt = 1;
-	if (!~setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt))) {
-		fprintf(stderr, "setsockopt failed: %s\n", strerror(errno));
 	}
 
 	return status;
@@ -79,6 +80,7 @@ handleINT(int sig)
 		signal(sig, SIG_IGN);
 		snprintf(buf, 20, "\nreceived signal %i\n", sig);
 		write(2, buf, 20);
+		shutdown(listening_socket, SHUT_RDWR);
 		close(listening_socket);
 	}
 	exit(0);
