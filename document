@@ -1,0 +1,15 @@
+#!/bin/bash
+
+npm install &> /dev/null
+
+if [[ $1 == 'stop' ]] ; then
+	killall node
+	killall watch
+else
+	node_modules/serve/bin/serve ./docs &> /dev/null &
+	watch -q node_modules/groc/bin/groc -o ./docs -e ./Makefile ./* &> /dev/null &
+fi
+
+
+
+

@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -Wall -fpic -O2 -I/usr/include
+CFLAGS = -Wall -fpic -O2 -I/usr/include -g
 
 default: build
 

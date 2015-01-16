@@ -5,9 +5,9 @@
 #ifndef RESPONSE_H_
 #define RESPONSE_H_
 struct lal_response {
-    char *status;
-    struct lal_entry *headers;
-    struct lal_body_part *body;
+	char *status;
+	struct lal_entry *headers;
+	struct lal_body_part *body;
 };
 
 struct lal_response *

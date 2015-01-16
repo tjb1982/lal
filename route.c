@@ -8,15 +8,15 @@ lal_route_request (void *arg)
 		lal_read_header(thread->socket)
 	);
 	struct lal_route *route;
-	
+
 	if (!~request->method) {
 		fprintf(stderr, "route_request failed: method %s not implemented\n",
 			lal_method_to_string(request->method));
 	}
 
 	route = lal_get_route((struct lal_route *)thread->extra, request);
-	write(1, route->path, route->pathlen);
-	printf(", %i, %p\n", route->method, route->handler);
+//	write(1, route->path, route->pathlen);
+//	printf(", %i, %p\n", route->method, route->handler);
 
 	if (route)
 		(void) route->handler(thread->socket, request);
@@ -148,9 +148,9 @@ compare:
 		/*
 		 * It's at this point where the two paths diverge. They both have length
 		 * remaining, but they no longer match. The goal now is to find out whether
-		 * we've encountered a route argument (:) or not; if so, fast-forward to the
-		 * next '/' in both rpos and qpos. If either one is exhausted before reaching
-		 * a '/', goto next_route. 
+		 * we've encountered a route argument (`:`) or not; if so, fast-forward to the
+		 * next `'/'` in both `rpos` and `qpos`. If either one is exhausted before reaching
+		 * a `'/'`, `goto next_route`.
 		 * */
 
 		rpos--; qpos--;
@@ -159,16 +159,17 @@ compare:
 
 		if (*rpos == ':') {
 
-			while (*rpos != '/' && !path_exhausted(rpos, route->path, route->pathlen))
+			while (!path_exhausted(rpos, route->path, route->pathlen) && *rpos != '/')
 				rpos++;
 
-			while (*qpos != '/' && !path_exhausted(qpos, request->path, request->pathlen))
+			while (!path_exhausted(qpos, request->path, request->pathlen) && *qpos != '/')
 				qpos++;
 
-			if (
-				path_exhausted(rpos, route->path, route->pathlen) &&
-				path_exhausted(qpos, request->path, request->pathlen)
-			) return route;
+			route_exhausted = path_exhausted(rpos, route->path, route->pathlen);
+			request_exhausted = path_exhausted(qpos, request->path, request->pathlen);
+
+			if (route_exhausted && request_exhausted)
+				return route;
 			else if (*rpos == '/' && *qpos == '/')
 				goto compare;
 			else if (*rpos == '/' || *qpos == '/') {

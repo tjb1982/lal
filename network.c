@@ -90,13 +90,20 @@ void *
 loop(void *args) {
 	struct lal_thread *thread = args;
 	while (!thread->ready) {
+		time_t start; time(&start);
 		thread->job(args);
 		shutdown(thread->socket, SHUT_RDWR);
 		close(thread->socket);
 		thread->ready = true;
-		while (thread->ready)
-			;
+		while (thread->ready) {
+			time_t now; time(&now);
+			if (now - start >= THREAD_TIMEOUT) {
+				thread->id = 0;
+				goto exit;
+			}	
+		}
 	}
+exit:
 	return NULL;
 }
 
@@ -107,17 +114,26 @@ lal_serve_forever(
 	int (*job)(void *arg),
 	void *extra
 ) {
-	int id = 0, request_socket, hitcount = 0, sockopt = 1;
-	pthread_attr_t pthread_attr;
 
+	int
+		id = 0,
+		request_socket,
+		hitcount = 0;
+	pthread_attr_t
+		pthread_attr;
 	struct addrinfo
 		request_addrinfo,
 		*host_addrinfo = lal_get_host_addrinfo_or_die(
 			host ? host : "localhost",
 			port ? port : "8080"
 		);
-
-	socklen_t request_addrinfo_socklen = sizeof request_addrinfo;
+	socklen_t
+		request_addrinfo_socklen = sizeof request_addrinfo;
+	struct lal_thread
+		*threads = calloc(
+			THREADNUM,
+			sizeof(struct lal_thread)
+		);
 
 	listening_socket = lal_get_socket_or_die(host_addrinfo);
 	(void) lal_bind_and_listen_or_die(listening_socket, host_addrinfo);
@@ -126,10 +142,6 @@ lal_serve_forever(
 
 	signal(SIGINT, handleINT);
 
-	struct lal_thread *threads = calloc(
-		THREADNUM,
-		sizeof(struct lal_thread)
-	);
 
 	pthread_attr_init(&pthread_attr);
 	pthread_attr_setstacksize(&pthread_attr, 32768);
@@ -143,10 +155,6 @@ lal_serve_forever(
 			(struct sockaddr *) &request_addrinfo,
 			&request_addrinfo_socklen
 		);
-
-		if (!~setsockopt(request_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&sockopt, sizeof(sockopt))) {
-			fprintf(stderr, "setsockopt failed: %s\n", strerror(errno));
-		}
 
 		id = 0;
 		while (threads[id].id && !threads[id].ready) {

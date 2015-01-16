@@ -9,18 +9,18 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 struct lal_entry {
-    char* key;
-    size_t keylen;
-    char *val;
-    size_t vallen;
-    struct lal_entry *next;
+	char* key;
+	size_t keylen;
+	char *val;
+	size_t vallen;
+	struct lal_entry *next;
 };
 
 struct lal_body_part {
-    const char *val;
-    size_t len;
-    struct lal_body_part *next;
-    struct lal_body_part *prev;
+	const char *val;
+	size_t len;
+	struct lal_body_part *next;
+	struct lal_body_part *prev;
 };
 
 enum lal_content_type {

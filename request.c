@@ -59,12 +59,15 @@ lal_set_entries (struct lal_request *request, char *src)
     char **save_ptr = &src;
     int nentries = 0;
 
+		/* **TODO**: cleanup and refactor this so that we're not using `strtok` and since we're
+		 * using `keylen` and `vallen`, there's not need to make these `'\0'`-terminated.
+		 * */
     entry = malloc(sizeof(struct lal_entry));
     request->header = entry;
 
     line = strtok_r(src, "\r\n", save_ptr);
     for (;;) {
-        if (strstr(line, ":")) {
+        if (strchr(line, ':')) {
             nentries++;
 
             ptr = line;
@@ -121,10 +124,6 @@ lal_create_request(char *src)
     while (*src++ != ' ')
         pathlen++;
 
-    /* fast forward to the next line */
-    while (*src++ != '\n')
-        ;
-
     struct lal_request *request, r = {
         .method = method,
         ._raw_header = header,
@@ -134,8 +133,11 @@ lal_create_request(char *src)
     };
 
     request = (struct lal_request *)malloc(sizeof (struct lal_request));
-    memcpy(request, &r, sizeof(r));
+    memcpy(request, &r, sizeof(struct lal_request));
 
+    /* fast forward to the next line */
+    while (*src != '\0' && *src++ != '\n')
+        ;
     lal_set_entries(request, src);
 
     return request;
