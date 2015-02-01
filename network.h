@@ -13,6 +13,7 @@
 #define BACKLOG 200
 #define THREADNUM 4
 #define THREAD_TIMEOUT 5
+#define JOBNUM 100
 
 struct lal_thread {
 	pthread_t id;
@@ -20,14 +21,25 @@ struct lal_thread {
 	size_t hitcount;
 	int volatile ready;
 	int (*job)(void *args);
+	/* e.g., `struct lal_route *`*/
 	void *extra;
 	time_t job_started;
+};
+
+struct lal_queue {
+	pthread_t id;
+	size_t hitcount;
+	int *queue;
+	int (*job)(void *args);
+//	void *(*execute)(void *args);
+	/* e.g., `struct lal_route *`*/
+	void *extra; 
 };
 
 int
 lal_get_socket_or_die (struct addrinfo *host);
 
-int
+void
 lal_bind_and_listen_or_die (int sock, struct addrinfo *host);
 
 struct addrinfo *

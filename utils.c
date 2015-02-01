@@ -157,12 +157,12 @@ lal_create_body_part(const char *init)
 struct lal_body_part *
 lal_append_to_body(struct lal_body_part *part, const char *src)
 {
-    	while (part->next) {
-    	    part = part->next;
-    	}
-    	part->next = lal_create_body_part(src);
-    	part->next->prev = part;
-    	part = part->next;
+	while (part->next) {
+	    part = part->next;
+	}
+	part->next = lal_create_body_part(src);
+	part->next->prev = part;
+	part = part->next;
 	part->next = NULL;
 
 	return part;
@@ -181,7 +181,7 @@ lal_nappend_to_body(struct lal_body_part *part, const uint8_t *src, size_t len)
 	}
 
 	part->len = len;
-	part->val = malloc(len);
+	part->val = malloc(sizeof(uint8_t) * len);
 	memcpy((void *)part->val, src, len);
 	part->next = NULL;
 

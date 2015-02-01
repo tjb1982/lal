@@ -7,7 +7,7 @@ if [[ $1 == 'stop' ]] ; then
 	killall watch
 else
 	node_modules/serve/bin/serve ./docs &> /dev/null &
-	watch -q node_modules/groc/bin/groc -o ./docs -e ./Makefile ./* &> /dev/null &
+	watch -q node_modules/groc/bin/groc -o ./docs -x -e ./Makefile ./* &> /dev/null &
 fi
 
 
