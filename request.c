@@ -66,7 +66,7 @@ lal_set_entries (struct lal_request *request, char *src)
     request->header = entry;
 
     line = strtok_r(src, "\r\n", save_ptr);
-    for (;;) {
+    while (line) {
         if (strchr(line, ':')) {
             nentries++;
 
@@ -116,6 +116,9 @@ lal_create_request(char *src)
     int pathlen = 0;
     enum lal_http_method method = lal_method_from_string(src);
 
+		if (!~method)
+			return NULL;
+
     /* skip over the method */
     while (*src++ != ' ')
         ;
@@ -156,7 +159,7 @@ lal_destroy_request (struct lal_request *request)
         free(prev);
     }
 
-    free((void *)request->_raw_header);
+		free((void *)request->_raw_header);
     free(request);
 }
 

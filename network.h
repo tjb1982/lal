@@ -11,9 +11,9 @@
 #include "route.h"
 
 #define BACKLOG 200
-#define THREADNUM 4
+#define THREADNUM 2
 #define THREAD_TIMEOUT 5
-#define JOBNUM 100
+#define JOBNUM 1000
 
 struct lal_thread {
 	pthread_t id;

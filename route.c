@@ -9,9 +9,14 @@ lal_route_request (void *arg)
 	);
 	struct lal_route *route;
 
+	if (request == NULL)
+		return EXIT_FAILURE;
+
 	if (!~request->method) {
 		fprintf(stderr, "route_request failed: method %s not implemented\n",
 			lal_method_to_string(request->method));
+		lal_destroy_request(request);
+		return EXIT_FAILURE;
 	}
 
 	route = lal_get_route((struct lal_route *)thread->extra, request);
