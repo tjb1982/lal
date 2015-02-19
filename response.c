@@ -59,8 +59,8 @@ lal_destroy_response(struct lal_response *resp)
     struct lal_entry *prev, *entry = resp->headers;
 
     while (entry) {
-        free(entry->val);
-        free(entry->key);
+        free((void *)entry->val);
+        free((void *)entry->key);
         prev = entry;
         entry = entry->next;
         free(prev);

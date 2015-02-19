@@ -89,6 +89,8 @@ lal_new_entry()
 struct lal_entry *
 lal_append_to_entries(struct lal_entry *entry, const char *key, const char *val)
 {
+		char *k, *v;
+
     if (entry->keylen) {
         while (entry->next) {
             if (!strcmp(entry->key, key))
@@ -98,23 +100,23 @@ lal_append_to_entries(struct lal_entry *entry, const char *key, const char *val)
         if (strcmp(entry->key, key))
             entry = entry->next = lal_new_entry();
         else {
-            free(entry->key);
-            free(entry->val);
+            free((void *)entry->key);
+            free((void *)entry->val);
         }
     }
 
     entry->keylen = strlen(key);
-    entry->key = malloc(sizeof(char) * (entry->keylen + 1));
-    strcpy(entry->key, key);
+    entry->key = k = malloc(sizeof(char) * (entry->keylen + 1));
+    strcpy(k, key);
 
     entry->vallen = strlen(val);
-    entry->val = malloc(sizeof(char) * (entry->vallen + 1));
-    strcpy(entry->val, val);
+    entry->val = v = malloc(sizeof(char) * (entry->vallen + 1));
+    strcpy(v, val);
 
     return entry;
 }
 
-char *
+const char *
 lal_get_entry(struct lal_entry *entry, const char *key)
 {
     while (entry && entry->key) {
@@ -271,8 +273,8 @@ lal_destroy_entries(struct lal_entry *entry)
     struct lal_entry *prev;
 
     while (entry) {
-        free(entry->key);
-        free(entry->val);
+        free((void *)entry->key);
+        free((void *)entry->val);
         prev = entry;
         entry = entry->next;
         free(prev);

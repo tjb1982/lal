@@ -1,5 +1,6 @@
 #ifndef REQUEST_H_
 #define REQUEST_H_
+
 #include <stdio.h>
 #include <syslog.h>
 #include <errno.h>
@@ -9,9 +10,6 @@
 #include <bsd/string.h>
 #include "utils.h"
 
-#define CR '\r'
-#define LF '\n'
-#define CRLF "\r\n"
 #define MAXHEADERSIZE 8192
 
 enum lal_http_method {
@@ -24,24 +22,29 @@ struct lal_request {
 	enum lal_http_method method;
 	const char *_raw_header;
 	struct lal_entry *header;
+	const uint8_t *content;
+	int content_length;
 };
 
-const char *
-lal_method_to_string(enum lal_http_method m);
+const char
+*lal_method_to_string (enum lal_http_method m);
 
-const char *
-lal_get_header_val (struct lal_request *request, const char *key);
+struct lal_entry
+*lal_get_header (struct lal_request *request, const char *key);
 
-int
-lal_set_entries (struct lal_request *request, char *src);
+void
+lal_set_headers (struct lal_request *request, const char *src);
 
-char *
-lal_read_header (int sock);
+const char
+*lal_parse_header (int sock);
+
+void
+lal_set_content(int sock, struct lal_request *request);
 
 void
 lal_destroy_request (struct lal_request *request);
 
-struct lal_request *
-lal_create_request (char *src);
+struct lal_request
+*lal_create_request (const char *src);
 
 #endif // REQUEST_H_

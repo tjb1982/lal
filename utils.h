@@ -9,9 +9,9 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 struct lal_entry {
-	char* key;
+	const char* key;
 	size_t keylen;
-	char *val;
+	const char *val;
 	size_t vallen;
 	struct lal_entry *next;
 };
@@ -45,7 +45,7 @@ lal_new_entry();
 struct lal_entry *
 lal_append_to_entries(struct lal_entry *entry, const char *key, const char *val);
 
-char *
+const char *
 lal_get_entry(struct lal_entry *entry, const char *key);
 
 struct lal_body_part *

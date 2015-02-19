@@ -5,7 +5,7 @@ lal_route_request (void *arg)
 {
 	struct lal_thread *thread = arg;
 	struct lal_request *request = lal_create_request(
-		lal_read_header(thread->socket)
+		lal_parse_header(thread->socket)
 	);
 	struct lal_route *route;
 
@@ -20,8 +20,6 @@ lal_route_request (void *arg)
 	}
 
 	route = lal_get_route((struct lal_route *)thread->extra, request);
-//	write(1, route->path, route->pathlen);
-//	printf(", %i, %p\n", route->method, route->handler);
 
 	if (route)
 		(void) route->handler(thread->socket, request);

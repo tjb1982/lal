@@ -10,7 +10,6 @@
 #include <pthread.h>
 #include "route.h"
 
-#define BACKLOG 200
 #define THREADNUM 2
 #define THREAD_TIMEOUT 5
 #define JOBNUM 1000
@@ -31,17 +30,23 @@ struct lal_queue {
 	size_t hitcount;
 	int *queue;
 	int (*job)(void *args);
-//	void *(*execute)(void *args);
 	/* e.g., `struct lal_route *`*/
 	void *extra; 
 };
 
+
+/**
+ * Returns a socket file descriptor (int) or frees addrinfo and dies
+ * */
 int
 lal_get_socket_or_die (struct addrinfo *host);
 
 void
 lal_bind_and_listen_or_die (int sock, struct addrinfo *host);
 
+/**
+ * Hostname can be either IPv4/6 or domain name string
+ * */
 struct addrinfo *
 lal_get_host_addrinfo_or_die (const char *hostname, const char *port);
 
