@@ -1,5 +1,9 @@
 #include "network.h"
 
+int volatile listening_socket = -1;
+pthread_cond_t cond;
+pthread_mutex_t mutex;
+
 int
 lal_get_socket_or_die (struct addrinfo *host)
 {
@@ -23,9 +27,7 @@ void
 lal_bind_and_listen_or_die (int sock, struct addrinfo *host)
 {
 
-	int
-		status = 0,
-		opt = 1;
+	int status = 0, opt = 1;
 
 	status = setsockopt(
 		sock,
@@ -73,9 +75,7 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port)
 	hints.ai_family = AF_UNSPEC; /* IPv4 or IPv6 */
 	hints.ai_socktype = SOCK_STREAM; /* TCP */
 
-	status = getaddrinfo(
-	    hostname, port, &hints, &host
-	);
+	status = getaddrinfo(hostname, port, &hints, &host);
 
 	if (status != 0) {
 		fprintf(stderr, "getaddrinfo failed: %s\n", gai_strerror(status));
@@ -86,136 +86,83 @@ lal_get_host_addrinfo_or_die (const char *hostname, const char *port)
 
 }
 
-int volatile listening_socket = -1;
-
 void
 handleINT(int sig)
 {
 	if (~listening_socket) {
 		signal(sig, SIG_IGN);
-		fprintf(stderr, "%s\n", "Shutting down");
+		fprintf(stderr, "\n%s\n", "Shutting down");
 		shutdown(listening_socket, SHUT_RDWR);
 		close(listening_socket);
 		listening_socket = -1;
 	}
 }
 
-void *
-loop(void *args) {
-	struct lal_thread *thread = args;
-	while (!thread->ready) {
-		time_t start; time(&start);
-		thread->job(args);
-		shutdown(thread->socket, SHUT_RDWR);
-		close(thread->socket);
-		thread->ready = true;
-		while (thread->ready) {
-			time_t now; time(&now);
-			if (now - start >= THREAD_TIMEOUT) {
-				thread->id = 0;
-				goto exit;
-			}
-		}
-	}
-exit:
-	return NULL;
+int normalize_index(int index) {
+	return index == JOBNUM
+		? index - JOBNUM
+		: index; 
 }
+
+int
+get_open_socket(int *queue) {
+	static int index = 0;
+	int socket;
+	index = normalize_index(index);
+	for (; index < JOBNUM; index++) {
+		if (~(socket = queue[index])) {
+			queue[index] = -1;
+			return socket;
+		}
+		index = normalize_index(index);
+	}
+	return 0;
+}
+
+//int
+//index_of_open(int *queue) {
+//	int index = 0;
+//	for (; index < JOBNUM; index++) {
+//		if (~queue[index]) {
+//			return index;
+//		}
+//	}
+//	return -1;
+//}
 
 void *
 hunt_heads(void *arg)
 {
-	int
-		queue_index = 0,
-		thread_index = 0;
-	struct lal_queue
-		*headhunter = arg;
-	pthread_attr_t
-		pthread_attr;
-	struct lal_thread
-		threads[THREADNUM]; memset(threads, 0, sizeof(threads));
+	int socket;
+	struct lal_thread *data = arg;
+	struct lal_headhunter *h = data->headhunter;
 
-	pthread_attr_init(&pthread_attr);
-	pthread_attr_setstacksize(&pthread_attr, 32768);
+	printf("hunt_heads started on thread #%li.\n", data->id);
 
 	while (~listening_socket) {
 
-		/*
-		 * Find an open thread, which is any `lal_thread` whose `.id < 1` and
-		 * `.ready == true`. So while the inverse of that is true, increment the
-		 * index `thread_index` until you find one that fits the criteria. Also, 
-		 * check to make sure that if the thread isn't open, that it hasn't been
-		 * hanging around past its `THREAD_TIMEOUT`. If it has, clean it up and 
-		 * use it.
-		 * */
-		thread_index = 0;
-		while (threads[thread_index].id > 0 && !threads[thread_index].ready) {
-			time_t now; time(&now);
-			if (now - threads[thread_index].job_started >= THREAD_TIMEOUT) {
-				fprintf(
-					stderr,
-					"thread %li cancelled: Timed out\n",
-					(long)threads[thread_index].id
-				);
-				pthread_cancel(threads[thread_index].id);
-				close(threads[thread_index].socket);
-				threads[thread_index].ready = true;
-				threads[thread_index].id = 0;
-				break;
-			}
-			thread_index = ++thread_index == THREADNUM ? thread_index - THREADNUM
-			: thread_index;
-		}
-
 		/* find an open job opportunity */
-		while (!~headhunter->queue[queue_index])
-			queue_index = ++queue_index == JOBNUM ? queue_index - JOBNUM : queue_index;
-
-		threads[thread_index].socket = headhunter->queue[queue_index];
-		headhunter->queue[queue_index] = -1;
-		threads[thread_index].hitcount = headhunter->hitcount;
-		time(&threads[thread_index].job_started);
-		threads[thread_index].ready = false;
-
-		/*
-		 * If the thread's `id` is `0`, that means it doesn't exist, so attempt to 
-		 * create a new one.
-		 * */
-		if (!threads[thread_index].id && ~listening_socket) {
-			int attempts = 0;
-try_again:
-			fprintf(stderr, "creating new thread....");
-			threads[thread_index].job = headhunter->job;
-			threads[thread_index].extra = headhunter->extra;
-
-			if (pthread_create(
-				&threads[thread_index].id, &pthread_attr, loop, &threads[thread_index]
-			)) {
-				fprintf(
-					stderr,
-					"pthread_create failed: cancelling thread %li.\n",
-					threads[thread_index].id
-				);
-				pthread_cancel(threads[thread_index].id);
-				if (++attempts <= 10) {
-					sleep(1);
-					goto try_again;
-				}
-				else {
-					fprintf(
-						stderr,
-						"%i failed attempts to pthread_create. Shutting down.\n",
-						attempts
-					);
-					handleINT(SIGINT);
-				}
-			}
-			else {
-				fprintf(stderr, "%li\n", threads[thread_index].id);
-				attempts = 0;
-			}
+		pthread_mutex_lock(&mutex);
+		while (!(socket = get_open_socket(h->queue))) {
+			pthread_cond_wait(&cond, &mutex);
 		}
+		pthread_mutex_unlock(&mutex);
+
+		struct lal_job job = {
+			.socket = socket,
+			.hitcount = h->hitcount,
+			.extra = h->extra,
+			.job_started = 0,
+			.canceled = 0
+		};
+
+		time(&job.job_started);
+
+		h->job(&job);
+		shutdown(job.socket, SHUT_RDWR);
+		close(job.socket);
 	}
-	pthread_attr_destroy(&pthread_attr);
+	pthread_exit(NULL);
 	return NULL;
 }
 
@@ -227,26 +174,22 @@ lal_serve_forever(
 	void *extra
 ) {
 
-	int
-		request_socket = 0,
-		queue_index = 0,
-		queue[JOBNUM]; memset(queue, -1, sizeof(queue));
-	struct addrinfo
-		request_addrinfo,
+	int request_socket = 0, queue_index = 0, rc, i;
+	int queue[JOBNUM]; memset(queue, -1, sizeof(queue));
+	struct addrinfo request_addrinfo,
 		*host_addrinfo = lal_get_host_addrinfo_or_die(
 			host ? host : "localhost",
-			port ? port : "8080"
+			port ? port : "80"
 		);
-	socklen_t
-		request_socklen = sizeof(request_addrinfo);
-	struct lal_queue
-		headhunter = {
-			.id = 0,
+	socklen_t request_socklen = sizeof(request_addrinfo);
+	struct lal_headhunter headhunter = {
 			.hitcount = 0,
 			.queue = queue,
 			.job = job,
 			.extra = extra
 		};
+	pthread_attr_t pthread_attr;
+	struct lal_thread threads[THREADNUM];
 
 	listening_socket = lal_get_socket_or_die(host_addrinfo);
 
@@ -257,18 +200,26 @@ lal_serve_forever(
 	signal(SIGINT, handleINT);
 
 	/*
-	 * Thread loop that matches jobs to worker threads.
+	 * Thread loop that matches jobs to worker jobs.
 	 * */
-	if (pthread_create(
-		&headhunter.id, NULL, hunt_heads, &headhunter
-	)) {
-		fprintf(
-			stderr,
-			"pthread_create failed: cancelling thread %li.",
-			headhunter.id
-		);
-		pthread_cancel(headhunter.id);
-		goto exit; 
+	pthread_attr_init(&pthread_attr);
+	pthread_attr_setstacksize(&pthread_attr, 32768);
+	for (i = 0; i < THREADNUM; i++) {
+		struct lal_thread *thread = &threads[i];
+		thread->headhunter = &headhunter;
+		if ((rc = pthread_create(
+			&thread->id, &pthread_attr, hunt_heads, (void *)thread
+		))) {
+			fprintf(
+				stderr,
+				"pthread_create failed: cancelling thread %li. "
+					"rc: %d.\n",
+				thread->id, rc
+			);
+			// TODO: is pthread_cancel the right move here?
+			pthread_cancel(thread->id);
+			goto exit; 
+		}
 	}
 
 	printf("Lal serving at %s:%s\n", host, port);
@@ -278,7 +229,12 @@ lal_serve_forever(
 	 * robin fashion. If the `listening_socket` is closed (i.e., its value set
 	 * to `-1`), then this function returns control to the client application.
 	 * */
-	while (~listening_socket && ++headhunter.hitcount) {
+	pthread_cond_init(&cond, NULL);
+	pthread_mutex_init(&mutex, NULL);
+
+	while (~listening_socket) {
+
+		headhunter.hitcount++;
 
 		request_socket = accept(
 			listening_socket,
@@ -289,10 +245,18 @@ lal_serve_forever(
 		/**
 		 * Loop through the job queue until an open slot (`-1`) is found
 		 * */
-		while (~headhunter.queue[queue_index])
-			queue_index = ++queue_index == JOBNUM ? queue_index - JOBNUM : queue_index;
+		while (~headhunter.queue[queue_index]) {
+			queue_index = ++queue_index == JOBNUM
+				? queue_index - JOBNUM
+				: queue_index;
+		}
+
+		pthread_mutex_lock(&mutex);
 
 		headhunter.queue[queue_index] = request_socket;
+
+		pthread_mutex_unlock(&mutex);
+		pthread_cond_signal(&cond);
 	}
 
 exit:

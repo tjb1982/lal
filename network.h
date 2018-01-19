@@ -10,28 +10,30 @@
 #include <pthread.h>
 #include "route.h"
 
-#define THREADNUM 2
+#define THREADNUM 8
 #define THREAD_TIMEOUT 5
-#define JOBNUM 1000
+#define JOBNUM 100000
 
-struct lal_thread {
-	pthread_t id;
-	int socket;
-	size_t hitcount;
-	int volatile ready;
-	int (*job)(void *args);
+struct lal_job {
+	int	socket;
+	size_t	hitcount;
 	/* e.g., `struct lal_route *`*/
-	void *extra;
-	time_t job_started;
+	void	*extra;
+	time_t	job_started;
+	int	canceled;
 };
 
-struct lal_queue {
-	pthread_t id;
-	size_t hitcount;
-	int *queue;
-	int (*job)(void *args);
+struct lal_headhunter {
+	size_t	hitcount;
+	int	*queue;
+	int	(*job)(void *args);
 	/* e.g., `struct lal_route *`*/
-	void *extra; 
+	void	*extra;
+};
+
+struct lal_thread {
+	pthread_t		id;
+	struct lal_headhunter 	*headhunter;
 };
 
 
@@ -42,20 +44,26 @@ int
 lal_get_socket_or_die (struct addrinfo *host);
 
 void
-lal_bind_and_listen_or_die (int sock, struct addrinfo *host);
+lal_bind_and_listen_or_die (
+	int	sock,
+	struct	addrinfo *host
+);
 
 /**
  * Hostname can be either IPv4/6 or domain name string
  * */
 struct addrinfo *
-lal_get_host_addrinfo_or_die (const char *hostname, const char *port);
+lal_get_host_addrinfo_or_die (
+	const char *hostname,
+	const char *port
+);
 
 void
 lal_serve_forever (
-	const char *host,
-	const char *port,
-	int (*socket_handler)(void *arg),
-	void *extra
+	const char	*host,
+	const char	*port,
+	int		(*socket_handler)(void *arg),
+	void		*extra
 );
 
 

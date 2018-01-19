@@ -99,18 +99,18 @@ struct lal_request
 	const char *header = src, *path;
 	int pathlen = 0;
 	enum lal_http_method method = lal_method_from_string(src);
-	
+
 	if (!~method)
 		return NULL;
-	
+
 	/* skip over the method */
 	while (*src++ != ' ')
-	    ;
-	
+		;
+
 	path = src;
 	while (*src++ != ' ')
 		pathlen++;
-	
+
 	struct lal_request *request, r = {
 		.method = method,
 		._raw_header = header,
@@ -120,16 +120,16 @@ struct lal_request
 		.content = NULL,
 		.content_length = 0
 	};
-	
+
 	request = malloc(sizeof (struct lal_request));
 	memcpy(request, &r, sizeof(struct lal_request));
-	
+
 	/* fast forward to the next line */
 	while (*src != '\0' && *src++ != '\n')
 		;
-	
+
 	lal_set_headers(request, src);
-	
+
 	return request;
 }
 

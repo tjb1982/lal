@@ -1,27 +1,46 @@
-CC = clang
+TARGET = /usr/local/lib/liblal.so
+CC = gcc
 CFLAGS = -Wall -fpic -O2 -I/usr/include -g
+HEADERS = ${wildcard *.h}
+SOURCES = ${wildcard *.c}
+OBJECTS = $(SOURCES:%.c=obj/%.o)
 
-default: build
+default: bin/liblal.so
 
-build: network.c route.c utils.c
-	mkdir -p bin
-	mkdir -p obj
-	$(CC) $(CFLAGS) -c network.c -o obj/network.o
-	$(CC) $(CFLAGS) -c route.c -o obj/route.o
-	$(CC) $(CFLAGS) -c request.c -o obj/request.o
-	$(CC) $(CFLAGS) -c response.c -o obj/response.o
-	$(CC) $(CFLAGS) -c utils.c -o obj/utils.o
-	$(CC) -shared -L/usr/lib -lbsd obj/network.o obj/route.o obj/request.o obj/response.o obj/utils.o -o bin/liblal.so -s
+bin/liblal.so: $(OBJECTS) bin
+	$(CC) -shared -lbsd $(OBJECTS) -o $@ -s
 
-install: bin/liblal.so
-	mkdir -p /usr/local/include/lal
-	cp network.h /usr/local/include/lal/
-	cp route.h /usr/local/include/lal/
-	cp request.h /usr/local/include/lal/
-	cp response.h /usr/local/include/lal/
-	cp utils.h /usr/local/include/lal/
-	cp bin/liblal.so /usr/local/lib/
+bin/liblal.a: $(OBJECTS) bin
+	ar rcs $@ $(OBJECTS)
+
+bin:
+	mkdir bin
+
+obj:
+	mkdir obj
+
+obj/%.o: %.c obj
+	$(CC) $(CFLAGS) -c $< -o $@
+
+/usr/local/include/lal/:
+	sudo mkdir -p /usr/local/include/lal
+
+headers: /usr/local/include/lal/ $(HEADERS) 
+	for header in $(HEADERS); do \
+		sudo cp $$header $<; \
+	done
+
+install: headers bin/liblal.so
+	sudo cp bin/liblal.so /usr/local/lib
+
+uninstall:
+	sudo rm -f $(TARGET)
+	sudo rm -rf /usr/local/include/lal
+
+bin/lal: bin/liblal.a headers
+	gcc test/main.c -o $@ -l:liblal.a -L./bin -lpthread -lbsd
 
 clean:
 	rm -rf bin/ obj/
 
+test: bin/lal

@@ -3,9 +3,9 @@
 int
 lal_route_request (void *arg)
 {
-	struct lal_thread *thread = arg;
+	struct lal_job *job = arg;
 	struct lal_request *request = lal_create_request(
-		lal_parse_header(thread->socket)
+		lal_parse_header(job->socket)
 	);
 	struct lal_route *route;
 
@@ -19,10 +19,10 @@ lal_route_request (void *arg)
 		return EXIT_FAILURE;
 	}
 
-	route = lal_get_route((struct lal_route *)thread->extra, request);
+	route = lal_get_route((struct lal_route *)job->extra, request);
 
 	if (route)
-		(void) route->handler(thread->socket, request);
+		(void) route->handler(job->socket, request);
 	else
 		fprintf(stderr, "lal_route_request failed: route not found");
 
