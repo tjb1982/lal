@@ -1,4 +1,5 @@
 #include "request.h"
+#include <signal.h>
 
 const char
 *lal_method_to_string(enum lal_http_method m)
@@ -36,15 +37,18 @@ const char
 	while (ptr - buf < MAXHEADERSIZE - 1 &&
 	       (ptr - buf < 4 || strncmp(ptr - 4, "\r\n\r\n", 4) != 0) &&
 	       (nbytes = recv(sock, ptr++, 1, 0)) != 0) {
-		if (nbytes < 0)
+		if (nbytes < 0) {
 			fprintf(stderr, "recv() failed: %s", strerror(errno));
+			//raise(SIGINT);
+			goto end;
+		}
 		len += nbytes;
 	}
 
 	if (ptr - buf == MAXHEADERSIZE - 1 && strstr(buf, "\r\n\r\n") == NULL)
 		fprintf(stderr, "lal_parse_header: "
 			"header exceeded MAXHEADERSIZE of %i", MAXHEADERSIZE);
-
+end:
 	*ptr = '\0';
 
 	header = malloc((len + 1) * sizeof(char));

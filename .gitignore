@@ -5,3 +5,4 @@ lal.*
 *.swo
 node_modules/
 docs/
+bin/

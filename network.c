@@ -1,6 +1,7 @@
 #include "network.h"
 
 int volatile listening_socket = -1;
+struct lal_thread threads[THREADNUM];
 pthread_cond_t cond;
 pthread_mutex_t mutex;
 
@@ -99,9 +100,7 @@ handleINT(int sig)
 }
 
 int normalize_index(int index) {
-	return index == JOBNUM
-		? index - JOBNUM
-		: index; 
+	return index == JOBNUM ? index - JOBNUM : index; 
 }
 
 int
@@ -119,16 +118,6 @@ get_open_socket(int *queue) {
 	return 0;
 }
 
-//int
-//index_of_open(int *queue) {
-//	int index = 0;
-//	for (; index < JOBNUM; index++) {
-//		if (~queue[index]) {
-//			return index;
-//		}
-//	}
-//	return -1;
-//}
 
 void *
 hunt_heads(void *arg)
@@ -145,6 +134,8 @@ hunt_heads(void *arg)
 		pthread_mutex_lock(&mutex);
 		while (!(socket = get_open_socket(h->queue))) {
 			pthread_cond_wait(&cond, &mutex);
+			if (!~listening_socket)
+				goto exit;
 		}
 		pthread_mutex_unlock(&mutex);
 
@@ -162,16 +153,19 @@ hunt_heads(void *arg)
 		shutdown(job.socket, SHUT_RDWR);
 		close(job.socket);
 	}
+exit:
+	if (pthread_mutex_trylock(&mutex))
+		pthread_mutex_unlock(&mutex);
 	pthread_exit(NULL);
 	return NULL;
 }
 
 void
 lal_serve_forever(
-	const char *host,
-	const char *port,
-	int (*job)(void *arg),
-	void *extra
+	const char	*host,
+	const char	*port,
+	int		(*job)(void *arg),
+	void		*extra
 ) {
 
 	int request_socket = 0, queue_index = 0, rc, i;
@@ -189,7 +183,6 @@ lal_serve_forever(
 			.extra = extra
 		};
 	pthread_attr_t pthread_attr;
-	struct lal_thread threads[THREADNUM];
 
 	listening_socket = lal_get_socket_or_die(host_addrinfo);
 
@@ -218,7 +211,7 @@ lal_serve_forever(
 			);
 			// TODO: is pthread_cancel the right move here?
 			pthread_cancel(thread->id);
-			goto exit; 
+			goto exit;
 		}
 	}
 
@@ -251,15 +244,13 @@ lal_serve_forever(
 				: queue_index;
 		}
 
-		pthread_mutex_lock(&mutex);
-
 		headhunter.queue[queue_index] = request_socket;
-
-		pthread_mutex_unlock(&mutex);
 		pthread_cond_signal(&cond);
 	}
 
+	pthread_cond_broadcast(&cond);
+	for (i = 0; i < THREADNUM; i++)
+		pthread_join(threads[i].id, NULL);
 exit:
 	return;
-
 }
