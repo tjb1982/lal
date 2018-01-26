@@ -14,61 +14,61 @@ lal_create_response(const char *status)
 }
 
 char *
-lal_serialize_response(struct lal_response *resp)
+lal_serialize_response(struct lal_response *resp, long long *len)
 {
-    char *r;
-    struct lal_body_part *header = lal_create_body_part("");
+	char *r, *body_str, *header_str, content_length_str[100];
+	struct lal_entry *entry = resp->headers;
+	struct lal_body_part *header = lal_create_body_part("HTTP/1.1 ");
+	lal_append_to_body(header, resp->status);
+	lal_append_to_body(header, "\r\n");
 
-    lal_append_to_body(header, "HTTP/1.1 ");
-    lal_append_to_body(header, resp->status);
-    lal_append_to_body(header, "\r\n");
+	body_str = lal_join_body(resp->body, NULL);
+	*len = strlen(body_str);
+	sprintf(content_length_str, "%lli", *len);
 
-    char *body_str = lal_join_body(resp->body, NULL);
-    char content_length[100];
-    sprintf(content_length, "%li", strlen(body_str));
+	lal_append_to_entries(resp->headers, "Content-Length", content_length_str);
 
-    lal_append_to_entries(resp->headers, "Content-Length", content_length);
+	while (entry) {
+		lal_append_to_body(header, entry->key);
+		lal_append_to_body(header, ": ");
+		lal_append_to_body(header, entry->val);
+		lal_append_to_body(header, "\r\n");
+		entry = entry->next;
+	}
 
-    struct lal_entry *entry = resp->headers;
-    while (entry) {
-        lal_append_to_body(header, entry->key);
-        lal_append_to_body(header, ": ");
-        lal_append_to_body(header, entry->val);
-        lal_append_to_body(header, "\r\n");
-        entry = entry->next;
-    }
+	lal_append_to_body(header, "\r\n");
 
-    lal_append_to_body(header, "\r\n");
+	header_str = lal_join_body(header, NULL);
+	lal_destroy_body(header);
 
-    char *header_str = lal_join_body(header, NULL);
-    lal_destroy_body(header);
+	*len = strlen(header_str) + *len;
 
-    r = malloc((strlen(header_str) + strlen(body_str) + 1) * sizeof(char));
-    strcpy(r, header_str);
-    strcat(r, body_str);
+	r = calloc(*len + 1, sizeof(char));
+	strcpy(r, header_str);
+	strcat(r, body_str);
 
-    free(header_str);
-    free(body_str);
+	free(header_str);
+	free(body_str);
 
-    return r;
+	return r;
 }
 
 void
 lal_destroy_response(struct lal_response *resp)
 {
-    struct lal_entry *prev, *entry = resp->headers;
+	struct lal_entry *prev, *entry = resp->headers;
 
-    while (entry) {
-        free((void *)entry->val);
-        free((void *)entry->key);
-        prev = entry;
-        entry = entry->next;
-        free(prev);
-    }
+	while (entry) {
+		free((void *)entry->val);
+		free((void *)entry->key);
+		prev = entry;
+		entry = entry->next;
+		free(prev);
+	}
 
-    lal_destroy_body(resp->body);
+	lal_destroy_body(resp->body);
 
-    free(resp->status);
-    free(resp);
+	free(resp->status);
+	free(resp);
 
 }

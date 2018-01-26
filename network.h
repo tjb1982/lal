@@ -9,6 +9,7 @@
 #include <syslog.h>
 #include <pthread.h>
 #include "route.h"
+#include "log.h"
 
 #define THREADNUM 8
 #define THREAD_TIMEOUT 5
@@ -17,18 +18,19 @@
 struct lal_job {
 	int	socket;
 	size_t	hitcount;
-	/* e.g., `struct lal_route *`*/
 	void	*extra;
+	/* e.g., `struct lal_route *`*/
 	time_t	job_started;
 	int	canceled;
 };
 
 struct lal_headhunter {
-	size_t	hitcount;
-	int	*queue;
-	int	(*job)(void *args);
+	size_t		hitcount;
+	//int		*queue;
+	struct lal_job	*queue;
+	int		(*job)(void *args);
 	/* e.g., `struct lal_route *`*/
-	void	*extra;
+	void		*extra;
 };
 
 struct lal_thread {

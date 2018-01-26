@@ -12,18 +12,22 @@
 
 #define MAXHEADERSIZE 8192
 
+typedef enum lal_header_error {
+	LAL_SUCCESS, NOBYTES, RECV_FAILED, MAXHEADERSIZE_EXCEEDED, DISCONNECTED
+} LAL_HEADER_ERROR;
+
 enum lal_http_method {
     GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, ANY
 };
 
 struct lal_request {
-	const char *path;
-  int pathlen;
-	enum lal_http_method method;
-	const char *_raw_header;
-	struct lal_entry *header;
-	const uint8_t *content;
-	int content_length;
+	const char	*path;
+	int		pathlen;
+	enum		lal_http_method method;
+	const char	*_raw_header;
+	struct		lal_entry *header;
+	const uint8_t	*content;
+	int		content_length;
 };
 
 const char
@@ -35,8 +39,8 @@ struct lal_entry
 void
 lal_set_headers (struct lal_request *request, const char *src);
 
-const char
-*lal_parse_header (int sock);
+LAL_HEADER_ERROR
+lal_parse_header (int sock, char **header);
 
 void
 lal_set_content(int sock, struct lal_request *request);
@@ -46,5 +50,8 @@ lal_destroy_request (struct lal_request *request);
 
 struct lal_request
 *lal_create_request (const char *src);
+
+const char
+*lal_header_error_msg (LAL_HEADER_ERROR error);
 
 #endif // REQUEST_H_

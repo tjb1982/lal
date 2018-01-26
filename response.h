@@ -14,7 +14,7 @@ struct lal_response *
 lal_create_response(const char *status);
 
 char *
-lal_serialize_response(struct lal_response *resp);
+lal_serialize_response(struct lal_response *resp, long long *len);
 
 void
 lal_destroy_response(struct lal_response *resp);

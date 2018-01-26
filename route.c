@@ -1,30 +1,82 @@
 #include "route.h"
+#include "response.h"
+
+int
+resp_404(
+	struct lal_request	*request,
+	struct lal_job		*job,
+	const char		*msg
+) {
+	char path[request->pathlen + 1];
+	snprintf(path, request->pathlen + 1, request->path);
+	//log_error("Responding with HTTP 404: lal_route_request failed: %s: %s", msg, path);
+
+	struct lal_response *resp = lal_create_response("404 Not found");
+	lal_append_to_entries(resp->headers, "Content-Type", "text/plain; charset=utf-8");
+	lal_append_to_entries(resp->headers, "Server", "lal");
+	lal_append_to_body(resp->body, msg);
+	lal_append_to_body(resp->body, ": ");
+	lal_append_to_body(resp->body, path);
+
+	long long len;
+	char *response = lal_serialize_response(resp, &len);
+	send(job->socket, response, len, 0);
+
+	free(response);
+	lal_destroy_response(resp);
+	if (~request->method)
+		lal_destroy_request(request);
+	return EXIT_FAILURE;
+}
 
 int
 lal_route_request (void *arg)
 {
+	LAL_HEADER_ERROR header_error;
 	struct lal_job *job = arg;
-	struct lal_request *request = lal_create_request(
-		lal_parse_header(job->socket)
-	);
-	struct lal_route *route;
+	char *header = NULL;
+	struct lal_request *request;
+	struct lal_route *route, *routes = (struct lal_route *)job->extra;
 
-	if (request == NULL)
+	if ((header_error = lal_parse_header(job->socket, &header))) {
+		log_warn(
+			"Couldn't parse header: (%li) %s.",
+			job->hitcount,
+			header_error == RECV_FAILED
+				? strerror(errno)
+				: lal_header_error_msg(header_error)
+		);
+		struct lal_request q = {
+			.path = "(null)",
+			.pathlen = 6,
+			.method = -1
+		};
+		return resp_404(&q, job, lal_header_error_msg(header_error));
+	}
+	request = lal_create_request(header);
+
+	if (request == NULL) {
+		log_error(
+			"`request` was NULL: socket: %i; header: \"%s\"",
+			job->socket, header
+		);
 		return EXIT_FAILURE;
+	}
 
 	if (!~request->method) {
-		fprintf(stderr, "route_request failed: method %s not implemented\n",
+		log_error("route_request failed: method %s not implemented",
 			lal_method_to_string(request->method));
 		lal_destroy_request(request);
 		return EXIT_FAILURE;
 	}
 
-	route = lal_get_route((struct lal_route *)job->extra, request);
+	route = lal_get_route(routes, request);
 
 	if (route)
 		(void) route->handler(job->socket, request);
-	else
-		fprintf(stderr, "lal_route_request failed: route not found");
+	else {
+		return resp_404(request, job, "Route not found");
+	}
 
 	lal_destroy_request(request);
 
@@ -50,10 +102,19 @@ lal_init_routes()
 void
 print_route(const struct lal_route *route)
 {
-	if (route->path)
-		write(1, route->path, route->pathlen);
-	else write(1, "(nil)", 5);
-	fprintf(stderr, ", %i, %p\n", route->method, (void *)route->handler);
+	if (!route->path) {
+		log_error(
+			"Route for method \"%s\" registered without a `path`",
+			lal_method_to_string(route->method)
+		);
+		return;
+	}
+	char path[route->pathlen + 1];
+	snprintf(path, route->pathlen + 1, route->path);
+	log_info(
+		"%s, %s, 0x%02x",
+		path, lal_method_to_string(route->method), (void *)route->handler
+	);
 }
 
 void
@@ -102,8 +163,10 @@ lal_register_route (
 
 	memcpy(route, &r, sizeof(r));
 
-	fprintf(stderr, "route registered: ");
-	print_route(route);
+	log_info(
+		"Route registered: %s, %s, 0x%x",
+		path, lal_method_to_string(route->method), (void *)route->handler
+	);
 }
 
 bool

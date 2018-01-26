@@ -1,5 +1,6 @@
 #include "request.h"
 #include <signal.h>
+#include "log.h"
 
 const char
 *lal_method_to_string(enum lal_http_method m)
@@ -12,6 +13,17 @@ const char
 	: m == HEAD ? "HEAD"
 	: m == OPTIONS ? "OPTIONS"
 	: "ANY";
+}
+
+const char
+*lal_header_error_msg(LAL_HEADER_ERROR error) {
+	return error == RECV_FAILED ?
+		"`recv` failed"
+	: error == NOBYTES ?
+		"No bytes received"
+	: error == DISCONNECTED ?
+		"Peer closed socket prematurely"
+	: NULL;
 }
 
 struct lal_entry
@@ -28,34 +40,46 @@ struct lal_entry
 	return NULL;
 }
 
-const char
-*lal_parse_header (int sock)
+LAL_HEADER_ERROR
+lal_parse_header (int sock, char **header)
 {
-	int nbytes, len = 0;
-	char buf[MAXHEADERSIZE], *ptr = buf, *header;
+	int nbytes = 0, len = 0;
+	char buf[MAXHEADERSIZE], *ptr = buf;
+	memset(buf, 0, MAXHEADERSIZE);
 
-	while (ptr - buf < MAXHEADERSIZE - 1 &&
-	       (ptr - buf < 4 || strncmp(ptr - 4, "\r\n\r\n", 4) != 0) &&
-	       (nbytes = recv(sock, ptr++, 1, 0)) != 0) {
+	while (
+		ptr - buf < MAXHEADERSIZE - 1 &&
+		(ptr - buf < 4 || strncmp(ptr - 4, "\r\n\r\n", 4) != 0) &&
+		(nbytes = recv(sock, ptr, 1, 0)) != 0
+	) {
 		if (nbytes < 0) {
-			fprintf(stderr, "recv() failed: %s", strerror(errno));
-			//raise(SIGINT);
-			goto end;
+			fprintf(stderr, "recv() failed: %s\n", strerror(errno));
+			return RECV_FAILED;
 		}
+		ptr++;
 		len += nbytes;
 	}
 
-	if (ptr - buf == MAXHEADERSIZE - 1 && strstr(buf, "\r\n\r\n") == NULL)
-		fprintf(stderr, "lal_parse_header: "
-			"header exceeded MAXHEADERSIZE of %i", MAXHEADERSIZE);
-end:
+	if (ptr - buf == MAXHEADERSIZE && strstr(buf, "\r\n\r\n") == NULL)
+		return MAXHEADERSIZE_EXCEEDED;
+
+	if (!len) {
+		//log_trace(
+		//	"request.c: sock: %i; len = %i; buf = \"%s\"",
+		//	sock, len, buf
+		//);
+		return NOBYTES;
+	}
+
+	if (!nbytes)
+		return DISCONNECTED;
+
 	*ptr = '\0';
 
-	header = malloc((len + 1) * sizeof(char));
-	memcpy(header, buf, len);
-	header[len] = 0;
+	*header = ptr = calloc(++len, sizeof(char));
+	memcpy(*header, buf, len);
 
-	return header;
+	return LAL_SUCCESS;
 }
 
 void
@@ -88,13 +112,20 @@ lal_set_headers (struct lal_request *request, const char *src)
 enum lal_http_method
 lal_method_from_string(const char *src)
 {
-	return strnstr(src, "GET", 3) == src ? GET
+	int rc = strnstr(src, "GET", 3) == src ? GET
 	: strnstr(src, "POST", 4)  == src ? POST
 	: strnstr(src, "PUT", 3)  == src ? PUT
 	: strnstr(src, "DELETE", 6)  == src ? DELETE
 	: strnstr(src, "OPTIONS", 7)  == src ? OPTIONS
 	: strnstr(src, "HEAD", 4)  == src ? HEAD
 	: -1;
+	//if (!~rc) {
+	//	for (int i = 0; i < 30; i++) {
+	//		fprintf(stderr, "%02x ", *src++);
+	//	}
+	//	puts("");
+	//}
+	return rc;
 }
 
 struct lal_request
@@ -104,8 +135,10 @@ struct lal_request
 	int pathlen = 0;
 	enum lal_http_method method = lal_method_from_string(src);
 
-	if (!~method)
+	if (!~method) {
+		log_error("No `method` found");
 		return NULL;
+	}
 
 	/* skip over the method */
 	while (*src++ != ' ')
