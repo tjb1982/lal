@@ -155,9 +155,8 @@ hunt_heads(void *arg)
 		time(&(job.job_started));
 
 		int rc = h->job(&job);
-		shutdown(job.socket, SHUT_RDWR);
+		//shutdown(job.socket, SHUT_RDWR);
 		close(job.socket);
-		//job->socket = -1;
 		if (rc) {
 			bad_rc++;
 			pthread_mutex_lock(&log_mutex);
@@ -174,55 +173,42 @@ exit:
 }
 
 void
-lal_serve_forever(
-	const char	*host,
-	const char	*port,
-	int		(*fn)(void *arg),
-	void		*extra
-) {
+spawn_workers(void) {
+	int num_workers = WORKERNUM;
+	int pid;
 
-	int request_socket = 0, queue_index = 0, rc, i;
-	struct lal_job queue[JOBNUM], *job;
-	struct addrinfo request_addrinfo,
-		*host_addrinfo = lal_get_host_addrinfo_or_die(
-			host ? host : "localhost",
-			port ? port : "80"
-		);
-	socklen_t request_socklen = sizeof(request_addrinfo);
-	struct lal_headhunter headhunter = {
-			.hitcount = 0,
-			.queue = queue,
-			.job = fn,
-			.extra = extra
-		};
+	while (--num_workers) {
+
+		pid = fork();
+
+		if (pid < 0) {
+			/* something went wrong */
+			break;
+		} else if (!pid) {
+			/* prevent child from spawning its own children */
+			break;
+		}
+	}
+}
+
+
+/*
+ * Thread loop that matches jobs to worker jobs.
+ * */
+void
+spawn_threads(struct lal_headhunter *headhunter) {
+
+	int i, rc;
 	pthread_attr_t pthread_attr;
-
 	pthread_cond_init(&cond, NULL);
 	pthread_mutex_init(&mutex, NULL);
 	pthread_mutex_init(&log_mutex, NULL);
 
-	log_set_lock(lock_fn);
-
-	memset(queue, 0, sizeof(queue));
-	for (i = 0; i < JOBNUM; i++)
-		queue[i].socket = -1;
-
-	listening_socket = lal_get_socket_or_die(host_addrinfo);
-
-	lal_bind_and_listen_or_die(listening_socket, host_addrinfo);
-
-	freeaddrinfo(host_addrinfo);
-
-	signal(SIGINT, handleINT);
-
-	/*
-	 * Thread loop that matches jobs to worker jobs.
-	 * */
 	pthread_attr_init(&pthread_attr);
 	pthread_attr_setstacksize(&pthread_attr, 32768);
 	for (i = 0; i < THREADNUM; i++) {
 		struct lal_thread *thread = &threads[i];
-		thread->headhunter = &headhunter;
+		thread->headhunter = headhunter;
 		if ((rc = pthread_create(
 			&thread->id, &pthread_attr, hunt_heads, (void *)thread
 		))) {
@@ -233,11 +219,54 @@ lal_serve_forever(
 			);
 			// TODO: is pthread_cancel the right move here?
 			pthread_cancel(thread->id);
-			goto exit;
+			break;
 		}
 	}
+	pthread_attr_destroy(&pthread_attr);
+}
 
+void
+lal_serve_forever(
+	const char	*host,
+	const char	*port,
+	int		(*fn)(void *arg),
+	void		*extra
+) {
+
+	int request_socket = 0, queue_index = 0, i;
+	struct lal_job *queue, *job;
+	struct addrinfo request_addrinfo,
+		*host_addrinfo = lal_get_host_addrinfo_or_die(
+			host ? host : "localhost",
+			port ? port : "80"
+		);
+	socklen_t request_socklen = sizeof(request_addrinfo);
+
+	log_set_lock(lock_fn);
+
+	queue = calloc(JOBNUM, sizeof(struct lal_job));
+	for (i = 0; i < JOBNUM; i++)
+		queue[i].socket = -1;
+
+	struct lal_headhunter headhunter = {
+		.hitcount = 0,
+		.queue = queue,
+		.job = fn,
+		.extra = extra
+	};
+
+	listening_socket = lal_get_socket_or_die(host_addrinfo);
+
+	lal_bind_and_listen_or_die(listening_socket, host_addrinfo);
 	log_info("Lal serving at %s:%s", host, port);
+
+	freeaddrinfo(host_addrinfo);
+
+	signal(SIGINT, handleINT);
+
+	spawn_workers();
+
+	spawn_threads(&headhunter);
 
 	/*
 	 * Accepted `request_socket`s are added to the `headhunter`'s job queue in round
@@ -275,6 +304,6 @@ lal_serve_forever(
 	for (i = 0; i < THREADNUM; i++)
 		pthread_join(threads[i].id, NULL);
 	log_info("%i failed requests", failed_requests);
-exit:
+	free(queue);
 	return;
 }

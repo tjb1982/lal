@@ -11,9 +11,10 @@
 #include "route.h"
 #include "log.h"
 
-#define THREADNUM 8
+#define THREADNUM 4
 #define THREAD_TIMEOUT 5
-#define JOBNUM 100000
+#define JOBNUM 10000
+#define WORKERNUM 1
 
 struct lal_job {
 	int	socket;
