@@ -227,33 +227,38 @@ spawn_threads(struct lal_headhunter *headhunter) {
 
 void
 lal_serve_forever(
-	const char	*host,
-	const char	*port,
-	int		(*fn)(void *arg),
-	void		*extra
+	const char		*host,
+	const char		*port,
+	int			(*fn)(void *arg),
+	void			*extra
 ) {
 
-	int request_socket = 0, queue_index = 0, i;
-	struct lal_job *queue, *job;
-	struct addrinfo request_addrinfo,
-		*host_addrinfo = lal_get_host_addrinfo_or_die(
-			host ? host : "localhost",
-			port ? port : "80"
-		);
-	socklen_t request_socklen = sizeof(request_addrinfo);
+	int			request_socket =	0,
+				queue_index = 		0,
+				i;
+
+	struct lal_job		*job,
+				*queue =		calloc(
+								JOBNUM,
+								sizeof(struct lal_job)
+							);
+							for (i = 0; i < JOBNUM; i++)
+								queue[i].socket = -1;
+
+	struct lal_headhunter	headhunter = 		{
+								.hitcount = 0,
+								.queue = queue,
+								.job = fn,
+								.extra = extra
+							};
+	struct addrinfo		request_addrinfo,
+				*host_addrinfo = 	lal_get_host_addrinfo_or_die(
+								host ? host : "localhost",
+								port ? port : "80"
+							);
+	socklen_t		request_socklen = 	sizeof(request_addrinfo);
 
 	log_set_lock(lock_fn);
-
-	queue = calloc(JOBNUM, sizeof(struct lal_job));
-	for (i = 0; i < JOBNUM; i++)
-		queue[i].socket = -1;
-
-	struct lal_headhunter headhunter = {
-		.hitcount = 0,
-		.queue = queue,
-		.job = fn,
-		.extra = extra
-	};
 
 	listening_socket = lal_get_socket_or_die(host_addrinfo);
 

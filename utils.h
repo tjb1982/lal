@@ -8,6 +8,9 @@
 
 #ifndef UTILS_H_
 #define UTILS_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
 struct lal_entry {
 	const char* key;
 	size_t keylen;
@@ -74,4 +77,7 @@ lal_destroy_entries(struct lal_entry *entries);
 
 void
 lal_destroy_body(struct lal_body_part *body);
+#ifdef __cplusplus
+}
+#endif
 #endif // UTILS_H_

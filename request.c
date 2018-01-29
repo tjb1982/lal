@@ -76,7 +76,7 @@ lal_parse_header (int sock, char **header)
 
 	*ptr = '\0';
 
-	*header = ptr = calloc(++len, sizeof(char));
+	*header = ptr = (char *)calloc(++len, sizeof(char));
 	memcpy(*header, buf, len);
 
 	return LAL_SUCCESS;
@@ -85,7 +85,7 @@ lal_parse_header (int sock, char **header)
 void
 lal_set_headers (struct lal_request *request, const char *src)
 {
-	struct lal_entry *entry = malloc(sizeof(struct lal_entry));
+	struct lal_entry *entry = (struct lal_entry *)malloc(sizeof(struct lal_entry));
 	request->header = entry;
 
 	entry->key = entry->val = NULL;
@@ -105,20 +105,21 @@ lal_set_headers (struct lal_request *request, const char *src)
 		if (*src == '\0')
 			entry->next = NULL;
 		else
-			entry = entry->next = malloc(sizeof(struct lal_entry));
+			entry = entry->next = (struct lal_entry *)malloc(
+				sizeof(struct lal_entry));
 	}
 }
 
 enum lal_http_method
 lal_method_from_string(const char *src)
 {
-	int rc = strnstr(src, "GET", 3) == src ? GET
+	enum lal_http_method rc = strnstr(src, "GET", 3) == src ? GET
 	: strnstr(src, "POST", 4)  == src ? POST
 	: strnstr(src, "PUT", 3)  == src ? PUT
 	: strnstr(src, "DELETE", 6)  == src ? DELETE
 	: strnstr(src, "OPTIONS", 7)  == src ? OPTIONS
 	: strnstr(src, "HEAD", 4)  == src ? HEAD
-	: -1;
+	: (enum lal_http_method)-1;
 	//if (!~rc) {
 	//	for (int i = 0; i < 30; i++) {
 	//		fprintf(stderr, "%02x ", *src++);

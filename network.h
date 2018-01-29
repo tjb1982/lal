@@ -11,10 +11,14 @@
 #include "route.h"
 #include "log.h"
 
-#define THREADNUM 4
+#define THREADNUM 8
 #define THREAD_TIMEOUT 5
 #define JOBNUM 10000
 #define WORKERNUM 1
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct lal_job {
 	int	socket;
@@ -69,5 +73,8 @@ lal_serve_forever (
 	void		*extra
 );
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _NETWORK_H_

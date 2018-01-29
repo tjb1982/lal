@@ -4,6 +4,9 @@
 
 #ifndef RESPONSE_H_
 #define RESPONSE_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
 struct lal_response {
 	char *status;
 	struct lal_entry *headers;
@@ -18,4 +21,7 @@ lal_serialize_response(struct lal_response *resp, long long *len);
 
 void
 lal_destroy_response(struct lal_response *resp);
+#ifdef __cplusplus
+}
+#endif
 #endif // RESPONSE_H_

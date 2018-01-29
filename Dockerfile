@@ -5,7 +5,7 @@ COPY . /usr/src/lal
 
 WORKDIR /usr/src/lal
 
-RUN pacman -Syyu base-devel libbsd --noconfirm
-RUN make test
+RUN pacman -Syyu base-devel libbsd libpqxx --noconfirm
+RUN make testpp
 
-CMD ["./bin/lal"]
+CMD ["./bin/lalpp"]

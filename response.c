@@ -3,9 +3,10 @@
 struct lal_response *
 lal_create_response(const char *status)
 {
-	struct lal_response *resp = malloc(sizeof(struct lal_response));
+	struct lal_response *resp = (struct lal_response *)malloc(
+		sizeof(struct lal_response));
 	int len = strlen(status);
-	resp->status = calloc(sizeof(char), len + 1);
+	resp->status = (char *)calloc(sizeof(char), len + 1);
 	memcpy(resp->status, status, len);
 	resp->headers = lal_new_entry();
 	resp->body = lal_new_body_part();
@@ -43,7 +44,7 @@ lal_serialize_response(struct lal_response *resp, long long *len)
 
 	*len = strlen(header_str) + *len;
 
-	r = calloc(*len + 1, sizeof(char));
+	r = (char *)calloc(*len + 1, sizeof(char));
 	strcpy(r, header_str);
 	strcat(r, body_str);
 

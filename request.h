@@ -12,6 +12,10 @@
 
 #define MAXHEADERSIZE 8192
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum lal_header_error {
 	LAL_SUCCESS, NOBYTES, RECV_FAILED, MAXHEADERSIZE_EXCEEDED, DISCONNECTED
 } LAL_HEADER_ERROR;
@@ -54,4 +58,7 @@ struct lal_request
 const char
 *lal_header_error_msg (LAL_HEADER_ERROR error);
 
+#ifdef __cplusplus
+}
+#endif
 #endif // REQUEST_H_

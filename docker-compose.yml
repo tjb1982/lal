@@ -2,11 +2,25 @@ version: '2'
 services:
   lal:
     container_name: lal
-    command: ./bin/lal 0.0.0.0 5001
+    command: ./bin/lalpp 0.0.0.0 5001
     build: ./
+    depends_on:
+    - laldb
     ports:
     - "5000:5001"
     expose:
     - "5001"
     volumes:
     - "./:/usr/src/lal"
+
+  laldb:
+    container_name: laldb
+    image: postgres:9.6
+    environment:
+      POSTGRES_USER: lal
+      POSTGRES_PASSWORD: lal
+    expose:
+    - "5432"
+    volumes:
+    - ${PWD}/data:/var/lib/postgresql/data
+

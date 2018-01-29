@@ -1,10 +1,10 @@
 TARGET = /usr/local/lib/liblal.so
 CC = gcc
-CFLAGS = -Wall -O2 -fPIC -I/usr/include -g -DXLOG_USE_COLOR -D_GNU_SOURCE
+CFLAGS = -Wall -O2 -fPIC -I/usr/include -I. -Ilib -g -DXLOG_USE_COLOR -D_GNU_SOURCE
 HEADERS = ${wildcard *.h}
 SOURCES = ${wildcard *.c}
 OBJECTS = $(SOURCES:%.c=obj/%.o)
-LIBS = -pthread -lbsd
+LIBS = -pthread -lbsd -luuid -lpqxx
 SUDO = $(shell which sudo)
 
 default: bin/liblal.so
@@ -42,6 +42,9 @@ uninstall:
 bin/lal: bin/liblal.a headers
 	gcc test/main.c -o $@ -l:liblal.a -L./bin $(LIBS)
 
+bin/lalpp: bin/liblal.a headers
+	g++ test/main.cpp -o $@ -Ilib -l:liblal.a -L./bin $(LIBS)
+
 bin/llal: install
 	gcc test/main.c -o $@ -llal -L./bin $(LIBS)
 
@@ -49,6 +52,8 @@ clean:
 	rm -rf bin/ obj/
 
 test: bin/lal
+
+testpp: bin/lalpp
 
 sudo:
 	echo $(SUDO)

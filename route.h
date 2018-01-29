@@ -14,6 +14,9 @@
 #include "network.h"
 #include "request.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 //extern struct lal_route *routes;
 
 struct lal_route {
@@ -40,4 +43,7 @@ lal_register_route(struct lal_route *routes, enum lal_http_method method, const 
 struct lal_route *
 lal_get_route(struct lal_route *routes, struct lal_request *request);
 
+#ifdef __cplusplus
+}
+#endif
 #endif // ROUTE_H_
