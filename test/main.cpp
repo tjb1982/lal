@@ -102,30 +102,26 @@ middleware(int sock, struct lal_request *request, int *clptr) {
 
 	struct lal_entry *header;
 
-	{
-		// Get Content-Type header, value == application/json
-		if (!(header = lal_get_header(request, "Content-Type"))) {
-			return respond_500(sock, "Content-Type header was empty");
-		}
-		char content_type_str[header->vallen + 1];
-		strncpy(content_type_str, header->val, header->vallen);
-		if (strstr(content_type_str, "application/json") != content_type_str) {
-			return respond_500(sock, "Content-Type must be application/json");
-		}
+	// Get Content-Type header, value == application/json
+	if (!(header = lal_get_header(request, "Content-Type"))) {
+		return respond_500(sock, "Content-Type header was empty");
+	}
+	char content_type_str[header->vallen + 1];
+	strncpy(content_type_str, header->val, header->vallen);
+	if (strstr(content_type_str, "application/json") != content_type_str) {
+		return respond_500(sock, "Content-Type must be application/json");
 	}
 
-	{
-		// Get Content-Length header, value
-		if (!(header = lal_get_header(request, "Content-Length"))) {
-			return respond_500(sock, "Content-Length header was empty");
-		}
-		char content_header_str[header->vallen + 1];
-		strncpy(content_header_str, header->val, header->vallen);
-		// Convert content_length to int
-		int content_length = std::stoi(content_header_str);
-		log_fatal("content length is: %i", content_length);
-		*clptr = content_length;
+	// Get Content-Length header, value
+	if (!(header = lal_get_header(request, "Content-Length"))) {
+		return respond_500(sock, "Content-Length header was empty");
 	}
+	char content_header_str[header->vallen + 1];
+	strncpy(content_header_str, header->val, header->vallen);
+	// Convert content_length to int
+	int content_length = std::stoi(content_header_str);
+	log_fatal("content length is: %i", content_length);
+	*clptr = content_length;
 	return 0;
 }
 
