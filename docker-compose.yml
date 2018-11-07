@@ -8,14 +8,12 @@ services:
     - laldb
     ports:
     - "5000:5001"
-    expose:
-    - "5001"
     volumes:
     - "./:/usr/src/lal"
 
   laldb:
     container_name: laldb
-    image: postgres:9.6
+    image: postgres:10
     environment:
       POSTGRES_USER: lal
       POSTGRES_PASSWORD: lal
