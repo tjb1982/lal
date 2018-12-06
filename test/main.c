@@ -58,7 +58,7 @@ int say_test(int sock, struct lal_request *request) {
 		"title":"%s",
 		"body":"%s",
 		"id":"%s",
-		"created":"%li"
+		"created": %li
 	}%s);
 	struct lal_response *resp = lal_create_response("200 OK");
 	lal_append_to_entries(resp->headers,

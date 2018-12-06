@@ -5,7 +5,7 @@ COPY . /usr/src/lal
 
 WORKDIR /usr/src/lal
 
-RUN pacman -Syyu base-devel libbsd libpqxx --noconfirm
+RUN pacman -Syu base-devel iputils libbsd libpqxx valgrind --noconfirm
 RUN make testpp
 
 CMD ["./bin/lalpp"]

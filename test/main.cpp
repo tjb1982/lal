@@ -18,19 +18,7 @@ using namespace pqxx;
 using namespace std;
 using json = nlohmann::json;
 
-std::string dbconfig = "dbname = lal user = lal password = lal "
-	"host = laldb port = 5432";
-
-int respond(int sock, struct lal_response *resp) {
-
-	long long len;
-	char *response = lal_serialize_response(resp, &len);
-	send(sock, response, len, 0);
-	free(response);
-	lal_destroy_response(resp);
-
-	return 0;
-}
+std::string dbconfig("postgresql://lal:lal@laldb:5432/lal");
 
 struct Post {
 public:
@@ -49,40 +37,52 @@ public:
 	}
 };
 
-int say_test(int sock, struct lal_request *request) {
-	int x = 10;
+
+int
+respond(int sock, struct lal_response *resp) {
+	long long len;
+	uint8_t *response = (uint8_t*)lal_serialize_response(resp, &len);
+	send(sock, response, len, 0);
+	free(response);
+	lal_destroy_response(resp);
+	return 0;
+}
+
+
+int
+respond_with_posts(int sock, std::vector<Post> &posts) {
+	int i = 0;
 	auto ss = std::stringstream();
 	char uuid_str[37];
 
 	ss << "[";
 
-	while(x--) {
-		Post p(
-			"88ffab8b-8f75-48a8-8680-159fe121621e",
-			"this is a test",
-			"a test in working with C++ to create an API",
-			time(NULL)
-		);
+	for (; i < posts.size(); i++) {
+		Post p = posts[i];
 		uuid_unparse(p.id, uuid_str);
+		struct tm *tm = localtime(&p.created);
+		char created[100];
+		strftime(created, 100, "%Y-%m-%d %H:%M:%S", tm);
 		ss	<< "{"
 				<< "\"title\":\"" << p.title << "\","
 				<< "\"body\":\"" << p.body << "\","
 				<< "\"id\":\"" << uuid_str << "\","
-				<< "\"created\":\"" << p.created << "\""
-			<< "}" << (x ? "," : "");
+				<< "\"created\":\"" << created << "\""
+			<< "}" << (i+1!=posts.size() ? "," : "");
 	}
 
 	ss << "]";
 
 	struct lal_response *resp = lal_create_response("200 OK");
 	lal_append_to_entries(resp->headers,
-		"Content-Type", "application/json; charset=utf-8");
+		"Content-Type", "application/json");
 
 	lal_nappend_to_body(resp->body,
 		(const uint8_t *)ss.str().c_str(), ss.str().size());
 
 	return respond(sock, resp);
 }
+
 
 int
 respond_500 (int sock, const char *msg) {
@@ -97,8 +97,9 @@ respond_500 (int sock, const char *msg) {
 	return 1;
 }
 
+
 int
-middleware(int sock, struct lal_request *request, int *clptr) {
+post_middleware(int sock, struct lal_request *request, int *clptr) {
 
 	struct lal_entry *header;
 
@@ -118,29 +119,36 @@ middleware(int sock, struct lal_request *request, int *clptr) {
 	}
 	char content_header_str[header->vallen + 1];
 	strncpy(content_header_str, header->val, header->vallen);
+
 	// Convert content_length to int
 	int content_length = std::stoi(content_header_str);
-	log_fatal("content length is: %i", content_length);
+	log_trace("Content length is: %i", content_length);
 	*clptr = content_length;
+
+	if (content_length > (1 << 12)) {
+		respond_500(sock, "Content-Length must be less than or equal to 4096 bytes.");
+		return 1;
+	}
+
 	return 0;
 }
+
 
 int
 insert_post(int sock, struct lal_request *request) {
 
 	int content_length;
-	if (middleware(sock, request, &content_length)) {
+	if (post_middleware(sock, request, &content_length)) {
 		return 1;
 	}
 
-	log_trace("%i", content_length);
 	// recv content_length from sock into buffer
 	char buffer[content_length + 1];
 	recv(sock, buffer, content_length, 0);
 	buffer[content_length] = '\0';
 	// parse as json
 	json j = json::parse(buffer);
-	log_info("json string: %s", j.dump().c_str());
+	log_info("JSON received: %s", j.dump().c_str());
 
 	// use it in pqxx try block
 	auto ss = stringstream();
@@ -158,25 +166,30 @@ insert_post(int sock, struct lal_request *request) {
 
 		work t(c);
 		c.prepare(id_str, QUOTE(
-			insert into post (id, body) values ($1, $2)
+			insert into post (id, title, body) values ($1, $2, $3)
 		));
 
 		prepare::invocation i(t.prepared(id_str));
 		i(id_str);
 		i(j.at("body").get<std::string>());
+		i(j.at("title").get<std::string>());
 		auto r = i.exec();
 
 		t.commit();
 		c.disconnect();
 
-		ss << "Affected rows: " << r.affected_rows();
+		json j = {
+			{"affected-rows": r.affected_rows()},
+			{"instance": 
+		};
 
-		struct lal_response *resp = lal_create_response("200 OK");
+		struct lal_response *resp = lal_create_response("201 Created");
 		lal_append_to_entries(resp->headers,
-			"Content-Type", "application/json; charset=utf-8");
+			"Content-Type", "application/json");
 
+		auto dump = j.dump();
 		lal_nappend_to_body(resp->body,
-			(const uint8_t *)ss.str().c_str(), ss.str().size());
+			(const uint8_t *)dump().c_str(), dump.size());
 
 		return respond(sock, resp);
 	} catch (const std::exception &e) {
@@ -185,28 +198,77 @@ insert_post(int sock, struct lal_request *request) {
 	}
 }
 
+
 int
-create_schema(std::string &dbconfig) {
+get_posts (int sock, struct lal_request *request) {
+	auto post_vector = std::vector<Post>();
+	result::size_type i = 0;
+
 	try {
-		connection C(dbconfig.c_str());
-		if (!C.is_open()) {
+		connection c(dbconfig.c_str());
+		if (!c.is_open()) {
+			const char *msg = "Can't connect to database.";
+			log_error(msg);
+			respond_500(sock, msg);
+			return 1;
+		}
+
+		work t(c);
+		result results = t.exec("select * from post");
+
+		t.commit();
+		c.disconnect();
+		
+		while (i != results.size()) {
+			struct std::tm tm;
+			auto r = results[i++];
+			std::istringstream ss(r["created"].c_str());
+			ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S.%u");
+			Post p(
+				r["id"].c_str(),
+				r["title"].c_str(),
+				r["body"].c_str(),
+				mktime(&tm)
+			);
+			post_vector.push_back(p);
+		}
+
+		return respond_with_posts(sock, post_vector);
+	} catch (const std::exception &e) {
+		std::stringstream errstr;
+		errstr << "Caught: " << e.what() << endl;
+		auto msg = errstr.str();
+		log_fatal(msg.c_str());
+		respond_500(sock, msg.c_str());
+		return 1;
+	}
+}
+
+int
+ensure_schema() {
+	try {
+		connection c(dbconfig.c_str());
+		if (!c.is_open()) {
 			cout << "Can't open database" << endl;
 			return 1;
 		}
 
 		const char *sql = "create table if not exists post ("
 			"id uuid primary key,"
+			"title text not null,"
 			"body text not null,"
 			"created timestamp default now()"
 		")";
 
-		work W(C);
-		W.exec(sql);
-		W.commit();
-		C.disconnect();
+		work t(c);
+		t.exec(sql);
+		t.commit();
+		c.disconnect();
 		return 0;
 	} catch (const std::exception &e) {
-		cerr << "Caught: " << e.what() << endl;
+		std::stringstream errstr;
+		errstr << "Caught: " << e.what() << endl;
+		log_fatal(errstr.str().c_str());
 		return 1;
 	}
 }
@@ -216,11 +278,14 @@ main(int argc, char **argv)
 {
 	struct lal_route *routes;
 
-	create_schema(dbconfig);
+	if (argc > 3)
+		dbconfig = dbconfig.replace(dbconfig.find("laldb"), 5, argv[3]);
+
+	ensure_schema();
 
 	routes = lal_init_routes();
-	lal_register_route(routes, GET, "/", say_test);
-	lal_register_route(routes, POST, "/post", insert_post);
+	lal_register_route(routes, GET, "/posts/", get_posts);
+	lal_register_route(routes, POST, "/posts/", insert_post);
 	lal_serve_forever(
 		(argc > 1 ? argv[1] : "localhost"),
 		(argc > 2 ? argv[2] : "5000"),

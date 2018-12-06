@@ -20,11 +20,12 @@ extern "C" {
 //extern struct lal_route *routes;
 
 struct lal_route {
-    const char *path;
-    const size_t pathlen;
-    const enum lal_http_method method;
-    int(*const handler)(int, struct lal_request *);
-    struct lal_route *next;
+	const char		*path;
+	const size_t		pathlen;
+	const enum		lal_http_method method;
+	int			(*const handler)(int, struct lal_request *);
+	struct lal_route	*next;
+	void			*extra;
 };
 
 int
@@ -38,7 +39,7 @@ lal_init_routes();
 
 void
 lal_register_route(struct lal_route *routes, enum lal_http_method method, const char *route,
-                 int(*handler)(int, struct lal_request *));
+	int (*handler)(int, struct lal_request *), void *extra);
 
 struct lal_route *
 lal_get_route(struct lal_route *routes, struct lal_request *request);

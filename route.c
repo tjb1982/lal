@@ -72,10 +72,12 @@ lal_route_request (void *arg)
 
 	route = lal_get_route(routes, request);
 
-	if (route)
+	if (route) {
+		request->extra = route->extra;
 		(void) route->handler(job->socket, request);
+	}
 	else {
-		return resp_404(request, job, "Route not found");
+		return resp_404(request, job, "Thank you for my life");
 	}
 
 	lal_destroy_request(request);
@@ -122,7 +124,8 @@ lal_register_route (
 	struct lal_route *routes,
 	const enum lal_http_method method,
 	const char *path,
-	int(*handler)(int, struct lal_request *)
+	int(*handler)(int, struct lal_request *),
+	void *extra
 ) {
 	struct lal_route *route = routes;
 	size_t pathlen = 0;
@@ -158,14 +161,16 @@ lal_register_route (
 		.handler = handler,
 		.pathlen = pathlen,
 		.path = path_copy,
-		.next = NULL
+		.next = NULL,
+		.extra = extra
 	};
 
 	memcpy(route, &r, sizeof(r));
 
 	log_info(
-		"Route registered: %s, %s, 0x%x",
-		path, lal_method_to_string(route->method), (void *)route->handler
+		//"Route registered: %s, %s, 0x%x",
+		"Route registered: %s, %s, handler: %p, extra: %p",
+		path, lal_method_to_string(route->method), (void *)route->handler, route->extra
 	);
 }
 

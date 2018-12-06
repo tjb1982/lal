@@ -1,0 +1,10 @@
+#!/bin/bash
+
+laldb=$(getent ahostsv4 laldb | grep STREAM | tail -1 | awk '{ print $1 }')
+lal=$(cat /etc/hosts | tail -1 | awk '{ print $1 }')
+
+if [ "x$DEBUG" != "x" ]; then make clean && make lalpp; fi
+
+echo ./bin/lalpp $lal 5001 $laldb
+./bin/lalpp $lal 5001 $laldb
+

@@ -2,7 +2,9 @@ version: '2'
 services:
   lal:
     container_name: lal
-    command: ./bin/lalpp 0.0.0.0 5001
+    #command: ./bin/lalpp 0.0.0.0 5001
+    #command: psql postgresql://lal:lal@laldb:5432/lal -c "select * from post"
+    command: ./init
     build: ./
     depends_on:
     - laldb
@@ -10,6 +12,8 @@ services:
     - "5000:5001"
     volumes:
     - "./:/usr/src/lal"
+    environment:
+      DEBUG: indeed
 
   laldb:
     container_name: laldb

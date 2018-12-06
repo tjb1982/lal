@@ -24,7 +24,7 @@ struct lal_job {
 	int	socket;
 	size_t	hitcount;
 	void	*extra;
-	/* e.g., `struct lal_route *`*/
+	/* e.g., `struct lal_route *` */
 	time_t	job_started;
 	int	canceled;
 };

@@ -1,11 +1,11 @@
 #include "network.h"
 
-int volatile listening_socket = -1;
+static volatile int listening_socket = -1;
 struct lal_thread threads[THREADNUM];
-pthread_cond_t cond;
-pthread_mutex_t mutex;
-pthread_mutex_t log_mutex;
-int volatile failed_requests = 0;
+static pthread_cond_t cond;
+static pthread_mutex_t mutex;
+static pthread_mutex_t log_mutex;
+static volatile int failed_requests = 0;
 
 
 void

@@ -32,6 +32,7 @@ struct lal_request {
 	struct		lal_entry *header;
 	const uint8_t	*content;
 	int		content_length;
+	void		*extra;
 };
 
 const char
