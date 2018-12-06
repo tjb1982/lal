@@ -113,12 +113,12 @@ lal_set_headers (struct lal_request *request, const char *src)
 enum lal_http_method
 lal_method_from_string(const char *src)
 {
-	enum lal_http_method rc = strnstr(src, "GET", 3) == src ? GET
-	: strnstr(src, "POST", 4)  == src ? POST
-	: strnstr(src, "PUT", 3)  == src ? PUT
-	: strnstr(src, "DELETE", 6)  == src ? DELETE
-	: strnstr(src, "OPTIONS", 7)  == src ? OPTIONS
-	: strnstr(src, "HEAD", 4)  == src ? HEAD
+	enum lal_http_method rc = strstr(src, "GET") == src ? GET
+	: strstr(src, "POST")  == src ? POST
+	: strstr(src, "PUT")  == src ? PUT
+	: strstr(src, "DELETE")  == src ? DELETE
+	: strstr(src, "OPTIONS")  == src ? OPTIONS
+	: strstr(src, "HEAD")  == src ? HEAD
 	: (enum lal_http_method)-1;
 	//if (!~rc) {
 	//	for (int i = 0; i < 30; i++) {

@@ -7,7 +7,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <stdlib.h>
-#include <bsd/string.h>
 #include "utils.h"
 
 #define MAXHEADERSIZE 8192
